@@ -862,7 +862,7 @@ async function autoRestoreSessions() {
             setTimeout(autoRestoreSessions, 2000);
             return;
         }
-        const allSessions = await sessionsCollection.find({}.toArray());
+        const allSessions = await sessionsCollection.find({}).toArray();
         if (allSessions.length > 0) {
             for (const doc of allSessions) {
                 const userId = doc.userId;
