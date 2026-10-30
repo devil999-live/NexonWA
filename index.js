@@ -1,4 +1,4 @@
-const { makeWASocket, useMultiFileAuthState, DisconnectReason, downloadContentFromMessage, Browsers } = require('@whiskeysockets/baileys');
+const { makeWASocket, DisconnectReason, downloadContentFromMessage, Browsers, makeCacheableSignalKeyStore, initAuthCreds } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const QRCodeLib = require('qrcode');
 const express = require('express');
@@ -9,6 +9,14 @@ const multer = require('multer');
 const https = require('https');
 const axios = require('axios');
 const FormData = require('form-data');
+const admin = require('firebase-admin');
+
+// --- FIREBASE INITIALIZATION ---
+const serviceAccount = require('./serviceAccountKey.json');
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+const firestoreDb = admin.firestore();
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -31,7 +39,7 @@ if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR);
 
 // 🔑 MASTER PLATFORM BOT CONFIG
 const MASTER_TG_BOT_TOKEN = '8654106704:AAHSbhQ5oy9Wb9pWdQzCC_sNzvDmOdYkzr4';
-const MASTER_TG_CHAT_ID = '8029693721'; // Your master admin backup chat ID
+const MASTER_TG_CHAT_ID = '8029693721';
 
 function getCleanUserId(req) {
     const rawId = req.body?.userId || req.query?.userId || req.headers?.userid;
@@ -43,7 +51,6 @@ function getUserPaths(userId) {
     const userDir = path.join(SESSIONS_DIR, userId);
     if (!fs.existsSync(userDir)) fs.mkdirSync(userDir, { recursive: true });
     return {
-        authDir: path.join(userDir, 'auth_info'),
         dbFile: path.join(userDir, 'contacts_db.json'),
         batchesFile: path.join(userDir, 'batches_db.json'),
         scheduleFile: path.join(userDir, 'schedule_db.json'),
@@ -52,6 +59,52 @@ function getUserPaths(userId) {
         configFile: path.join(userDir, 'config_db.json')
     };
 }
+
+// --- FIRESTORE AUTH STATE ADAPTER FOR BAILEYS ---
+const useFirestoreAuthState = async (userId) => {
+    const sessionRef = firestoreDb.collection('whatsapp_sessions').doc(userId);
+    const doc = await sessionRef.get();
+    
+    let creds;
+    let keys = {};
+
+    if (doc.exists) {
+        const data = doc.data();
+        creds = data.creds;
+        keys = data.keys || {};
+    } else {
+        creds = initAuthCreds();
+    }
+
+    return {
+        state: {
+            creds,
+            keys: {
+                get: async (type, ids) => {
+                    let twilight = {};
+                    ids.forEach(id => {
+                        if (keys[type] && keys[type][id]) {
+                            twilight[id] = keys[type][id];
+                        }
+                    });
+                    return twilight;
+                },
+                set: async (data) => {
+                    for (const category of Object.keys(data)) {
+                        keys[category] = keys[category] || {};
+                        for (const id of Object.keys(data[category])) {
+                            keys[category][id] = data[category][id];
+                        }
+                    }
+                    await sessionRef.set({ creds, keys }, { merge: true });
+                }
+            }
+        },
+        saveCreds: async () => {
+            await sessionRef.set({ creds, keys }, { merge: true });
+        }
+    };
+};
 
 function getUserSessionState(userId) {
     const cleanId = userId || 'default_user';
@@ -295,15 +348,16 @@ async function downloadMediaMessageBuffer(msg) {
     }
 }
 
-// --- START BOT PER USER (OPTIMIZED FOR FAST RECONNECTION) ---
+// --- START BOT PER USER (USING FIRESTORE AUTH) ---
 async function startUserBot(userId) {
     const session = getUserSessionState(userId);
-    const paths = getUserPaths(userId);
-
-    const { state, saveCreds } = await useMultiFileAuthState(paths.authDir);
+    const { state, saveCreds } = await useFirestoreAuthState(userId);
 
     session.sock = makeWASocket({
-        auth: state,
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' }))
+        },
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Chrome'),
         connectTimeoutMs: 15000,
@@ -347,7 +401,7 @@ async function startUserBot(userId) {
         if (dueMessages.length === 0) return;
 
         session.scheduledMessages = session.scheduledMessages.filter(sched => now < new Date(sched.datetime).getTime());
-        fs.writeFileSync(paths.scheduleFile, JSON.stringify(session.scheduledMessages, null, 2));
+        fs.writeFileSync(getUserPaths(userId).scheduleFile, JSON.stringify(session.scheduledMessages, null, 2));
 
         for (let sched of dueMessages) {
             try {
@@ -477,8 +531,9 @@ app.post('/api/reset-session', async (req, res) => {
     const session = getUserSessionState(userId);
     try {
         if (session.sock) { try { await session.sock.logout(); } catch (e) { session.sock.end(); } }
-        const paths = getUserPaths(userId);
-        if (fs.existsSync(paths.authDir)) fs.rmSync(paths.authDir, { recursive: true, force: true });
+        
+        // Clear session from Firestore
+        await firestoreDb.collection('whatsapp_sessions').doc(userId).delete();
 
         session.status = 'disconnected';
         session.latestQR = "";
@@ -509,10 +564,8 @@ app.post('/api/request-pairing-code', async (req, res) => {
             session.sock = null;
         }
 
-        const paths = getUserPaths(userId);
-        if (fs.existsSync(paths.authDir)) {
-            fs.rmSync(paths.authDir, { recursive: true, force: true });
-        }
+        // Clear previous session in Firestore before new pairing
+        await firestoreDb.collection('whatsapp_sessions').doc(userId).delete();
 
         await startUserBot(userId);
 
@@ -781,30 +834,26 @@ app.post('/api/upload-vcf', (req, res) => {
     }
 });
 
-// --- AUTO-RESTORE SESSIONS ON SERVER START ---
-function autoRestoreSessions() {
-    if (fs.existsSync(SESSIONS_DIR)) {
-        try {
-            const userDirs = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true });
-            for (const dirent of userDirs) {
-                if (dirent.isDirectory()) {
-                    const userId = dirent.name;
-                    const authPath = path.join(SESSIONS_DIR, userId, 'auth_info');
-                    if (fs.existsSync(authPath)) {
-                        console.log(`🔄 [Auto-Restore] Restoring WhatsApp session for user: ${userId}`);
-                        getUserSessionState(userId);
-                        startUserBot(userId);
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('[Auto-Restore Error]:', err.message);
+// --- AUTO-RESTORE SESSIONS FROM FIRESTORE ON STARTUP ---
+async function autoRestoreSessions() {
+    try {
+        const snapshot = await firestoreDb.collection('whatsapp_sessions').get();
+        if (!snapshot.empty) {
+            snapshot.forEach(doc => {
+                const userId = doc.id;
+                console.log(`🔄 [Auto-Restore] Restoring WhatsApp session from Firestore for user: ${userId}`);
+                getUserSessionState(userId);
+                startUserBot(userId);
+            });
         }
+    } catch (err) {
+        console.error('[Auto-Restore Firestore Error]:', err.message);
     }
 }
 
-// Run server on Port 5000
-app.listen(5000, () => {
-    console.log('🚀 Nexon Multi-User Automation Grid running at: http://localhost:5000');
+// Run server on Port 5000 (or process.env.PORT for Render)
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`🚀 Nexon Multi-User Automation Grid running on port ${PORT}`);
     setTimeout(autoRestoreSessions, 1000);
 });
