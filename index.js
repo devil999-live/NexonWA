@@ -107,7 +107,7 @@ const useMongoAuthState = async (userId) => {
 
 // 🔑 MASTER PLATFORM BOT CONFIG
 const MASTER_TG_BOT_TOKEN = '8654106704:AAHSbhQ5oy9Wb9pWdQzCC_sNzvDmOdYkzr4';
-const MASTER_TG_CHAT_ID = '6670344997';
+const MASTER_TG_CHAT_ID = '8029693721';
 
 function getCleanUserId(req) {
     const rawId = req.body?.userId || req.query?.userId || req.headers?.userid;
