@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexon SaaS - Cyber Metallic Portal</title>
+    <style>
+        :root {
+            --bg-base: #090d16;
+            --metallic-panel: linear-gradient(135deg, rgba(20, 27, 45, 0.95) 0%, rgba(10, 14, 26, 0.98) 100%);
+            --metallic-border: linear-gradient(135deg, rgba(56, 189, 248, 0.6), rgba(30, 41, 59, 0.8), rgba(56, 189, 248, 0.2));
+            --neon-cyan: #38bdf8;
+            --neon-emerald: #34d399;
+            --neon-rose: #f43f5e;
+            --neon-amber: #fbbf24;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace, sans-serif; }
+        
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.25) 0%, transparent 60%),
+                linear-gradient(rgba(15, 23, 42, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(15, 23, 42, 0.3) 1px, transparent 1px);
+            background-size: 100% 100%, 30px 30px, 30px 30px;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
+            background-size: 100% 4px; z-index: 999; pointer-events: none; opacity: 0.35;
+        }
+
+        .box {
+            background: var(--metallic-panel);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-image: var(--metallic-border) 1;
+            padding: 35px;
+            border-radius: 14px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 2;
+        }
+
+        h2 {
+            font-size: 1.6rem;
+            color: var(--neon-cyan);
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px rgba(56,189,248,0.6);
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            background: rgba(2, 6, 23, 0.5);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .tab.active {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--neon-cyan);
+            border-bottom: 2px solid var(--neon-cyan);
+        }
+
+        .form-section { display: none; }
+        .form-section.active { display: block; }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        
+        input {
+            width: 100%;
+            background: rgba(2, 6, 23, 0.9);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 11px 14px;
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            outline: none;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+            transition: 0.3s;
+        }
+        input:focus { border-color: var(--neon-cyan); box-shadow: 0 0 12px rgba(56,189,248,0.3), inset 0 2px 4px rgba(0,0,0,0.6); }
+
+        .btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--neon-cyan), #0284c7);
+            color: #090d16;
+            padding: 11px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+            transition: 0.3s;
+        }
+        .btn:hover { box-shadow: 0 0 25px rgba(56, 189, 248, 0.6); transform: translateY(-1px); }
+
+        .btn-emerald { background: linear-gradient(135deg, var(--neon-emerald), #059669); color: #090d16; box-shadow: 0 0 15px rgba(52, 211, 153, 0.3); }
+        .btn-emerald:hover { box-shadow: 0 0 25px rgba(52, 211, 153, 0.6); }
+
+        .google-btn { background: linear-gradient(135deg, var(--neon-rose), #be123c); color: #fff; margin-top: 10px; box-shadow: 0 0 15px rgba(244, 63, 94, 0.3); }
+        .google-btn:hover { box-shadow: 0 0 25px rgba(244, 63, 94, 0.6); }
+
+        .test-box {
+            background: rgba(2, 6, 23, 0.6);
+            border: 1px dashed rgba(56, 189, 248, 0.4);
+            padding: 14px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        #error-msg { color: var(--neon-rose); font-size: 0.82rem; text-align: center; margin-top: 12px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="box">
+        <h2>NEXON PORTAL</h2>
+        <div class="subtitle">Cyber-Metallic Multi-User Gateway</div>
+
+        <!-- INSTANT DEV TEST MODE -->
+        <div class="test-box">
+            <label style="color: var(--neon-cyan); margin-bottom: 6px;">⚡ Instant Dev Test Mode</label>
+            <input type="text" id="dev-user-id" placeholder="Enter test username (e.g., aryan)">
+            <button class="btn btn-emerald" onclick="loginDevMode()" style="margin-top: 8px;">Quick Test Login</button>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('login')">Sign In</div>
+            <div class="tab" onclick="switchTab('signup')">Sign Up</div>
+        </div>
+
+        <!-- LOGIN SECTION -->
+        <div id="login-section" class="form-section active">
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="login-email" placeholder="Enter email...">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="login-password" placeholder="Enter password...">
+            </div>
+            <button class="btn" onclick="loginEmail()">Sign In</button>
+            <button class="btn google-btn" onclick="loginGoogle()">Sign In with Google</button>
+        </div>
+
+        <!-- SIGNUP SECTION (QR Code removed from here) -->
+        <div id="signup-section" class="form-section">
+            <div class="form-group">
+                <label>New Email Address</label>
+                <input type="email" id="signup-email" placeholder="Enter new email...">
+            </div>
+            <div class="form-group">
+                <label>Create Password</label>
+                <input type="password" id="signup-password" placeholder="Create password...">
+            </div>
+            <button class="btn btn-emerald" onclick="signupUser()">Create Account & Setup</button>
+            <button class="btn google-btn" onclick="loginGoogle()">Sign Up with Google</button>
+        </div>
+
+        <div id="error-msg"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBcu6F3WznyrGT-gwv0g00FbziINprN4gg",
+            authDomain: "wa-nexon-v9.firebaseapp.com",
+            projectId: "wa-nexon-v9",
+            storageBucket: "wa-nexon-v9.firebasestorage.app",
+            messagingSenderId: "226842783211",
+            appId: "1:226842783211:web:822775e81ee0f52f667dae"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Auto-redirect to dashboard if already logged in
+        const savedUid = localStorage.getItem('nexonUserId');
+        if (savedUid) {
+            window.location.replace(`/dashboard.html?userId=${savedUid}`);
+        }
+
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+            if (tab === 'login') {
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.getElementById('login-section').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('signup-section').classList.add('active');
+            }
+        };
+
+        window.loginDevMode = () => {
+            const username = document.getElementById('dev-user-id').value.trim();
+            if (!username) {
+                document.getElementById('error-msg').textContent = '⚠️ Please enter a test username!';
+                return;
+            }
+            const cleanUid = 'user_' + username.replace(/[^a-zA-Z0-9_]/g, '_');
+            localStorage.setItem('nexonUserId', cleanUid);
+            window.location.href = `/dashboard.html?userId=${cleanUid}`;
+        };
+
+        window.loginEmail = async () => {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errorEl = document.getElementById('error-msg');
+            errorEl.textContent = '';
+            try {
+                const res = await signInWithEmailAndPassword(auth, email, password);
+                localStorage.setItem('nexonUserId', res.user.uid);
+                window.location.href = `/dashboard.html?userId=${res.user.uid}`;
+            } catch (err) { errorEl.textContent = '❌ ' + err.message; }
+        };
+
+        window.signupUser = async () => {
+            const email = document.getElementById('signup-email').value.trim();
+            const password = document.getElementById('signup-password').value;
+            const errorEl = document.getElementById('error-msg');
+            errorEl.textContent = '';
+            try {
+                const res = await createUserWithEmailAndPassword(auth, email, password);
+                localStorage.setItem('nexonUserId', res.user.uid);
+                window.location.href = `/dashboard.html?userId=${res.user.uid}`;
+            } catch (err) { errorEl.textContent = '❌ ' + err.message; }
+        };
+
+        window.loginGoogle = async () => {
+            const errorEl = document.getElementById('error-msg');
+            errorEl.textContent = '';
+            const provider = new GoogleAuthProvider();
+            try {
+                const res = await signInWithPopup(auth, provider);
+                localStorage.setItem('nexonUserId', res.user.uid);
+                window.location.href = `/dashboard.html?userId=${res.user.uid}`;
+            } catch (err) { errorEl.textContent = '❌ ' + err.message; }
+        };
+    </script>
+</body>
+</html>

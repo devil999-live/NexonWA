@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexon Cyber-Metallic Hub - Control Center</title>
+    <style>
+        :root {
+            --bg-base: #090d16;
+            --metallic-panel: linear-gradient(135deg, rgba(20, 27, 45, 0.95) 0%, rgba(10, 14, 26, 0.98) 100%);
+            --metallic-border: linear-gradient(135deg, rgba(56, 189, 248, 0.6), rgba(30, 41, 59, 0.8), rgba(56, 189, 248, 0.2));
+            --neon-cyan: #38bdf8;
+            --neon-emerald: #34d399;
+            --neon-amber: #fbbf24;
+            --neon-rose: #f43f5e;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace, sans-serif; }
+        
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.25) 0%, transparent 60%),
+                linear-gradient(rgba(15, 23, 42, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(15, 23, 42, 0.3) 1px, transparent 1px);
+            background-size: 100% 100%, 30px 30px, 30px 30px;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 40px;
+        }
+
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
+            background-size: 100% 4px; z-index: 999; pointer-events: none; opacity: 0.35;
+        }
+
+        .wrapper { max-width: 1100px; margin: 0 auto; position: relative; z-index: 2; }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--metallic-panel);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-image: var(--metallic-border) 1;
+            padding: 25px 35px; border-radius: 14px; margin-bottom: 25px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            flex-wrap: wrap; gap: 20px;
+        }
+
+        .logo-area h1 { font-size: 2rem; color: var(--neon-cyan); letter-spacing: 3px; text-shadow: 0 0 15px rgba(56,189,248,0.6); }
+        .logo-area p { font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 1px; }
+
+        .header-controls { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        
+        .live-badge { display: flex; align-items: center; gap: 10px; background: rgba(2, 6, 23, 0.9); padding: 12px 20px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.9rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+        .pulse-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--neon-rose); box-shadow: 0 0 10px var(--neon-rose); transition: 0.3s; }
+        .pulse-dot.connected { background-color: var(--neon-emerald); box-shadow: 0 0 12px var(--neon-emerald); }
+        .pulse-dot.qr { background-color: var(--neon-amber); box-shadow: 0 0 12px var(--neon-amber); }
+
+        .switch-container { display: flex; align-items: center; gap: 14px; background: rgba(2, 6, 23, 0.9); padding: 10px 20px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+        .switch { position: relative; display: inline-block; width: 56px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #0f172a; transition: .4s; border-radius: 28px; border: 1px solid #475569; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
+        input:checked + .slider { background-color: var(--neon-emerald); border-color: var(--neon-emerald); box-shadow: 0 0 15px var(--neon-emerald); }
+        input:checked + .slider:before { transform: translateX(28px); }
+        #status-text { font-weight: bold; font-size: 0.9rem; color: var(--neon-rose); text-shadow: 0 0 8px rgba(244,63,94,0.6); letter-spacing: 1px; }
+
+        .btn-action {
+            padding: 12px 18px; border: none; border-radius: 8px; 
+            cursor: pointer; font-family: 'Courier New', Courier, monospace; font-weight: bold; 
+            text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem; transition: 0.3s;
+            display: flex; align-items: center; gap: 8px;
+            text-decoration: none;
+        }
+
+        .disconnect-btn { background: #ef4444; color: #fff; box-shadow: 0 0 15px rgba(239,68,68,0.4); }
+        .disconnect-btn:hover { background: #dc2626; box-shadow: 0 0 20px rgba(239,68,68,0.7); transform: translateY(-2px); }
+
+        .qr-btn { background: var(--neon-amber); color: #090d16; box-shadow: 0 0 15px rgba(251,191,36,0.4); }
+        .qr-btn:hover { background: #f59e0b; box-shadow: 0 0 20px rgba(251,191,36,0.7); transform: translateY(-2px); }
+
+        .pair-btn { background: var(--neon-cyan); color: #090d16; box-shadow: 0 0 15px rgba(56,189,248,0.4); }
+        .pair-btn:hover { background: #0284c7; color: #fff; box-shadow: 0 0 20px rgba(56,189,248,0.7); transform: translateY(-2px); }
+
+        .logout-btn { background: var(--neon-rose); color: #fff; box-shadow: 0 0 15px rgba(244,63,94,0.4); }
+        .logout-btn:hover { background: #e11d48; box-shadow: 0 0 20px rgba(244,63,94,0.7); transform: translateY(-2px); }
+
+        .stats-ticker {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px;
+        }
+        @media(max-width: 768px) { .stats-ticker { grid-template-columns: 1fr; } }
+        .stat-box {
+            background: var(--metallic-panel); border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 10px; padding: 15px 20px; text-align: center;
+            box-shadow: inset 0 1px 3px rgba(255,255,255,0.05), 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .stat-box span { display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .stat-box h4 { font-size: 1.5rem; color: var(--neon-cyan); text-shadow: 0 0 10px rgba(56,189,248,0.4); }
+
+        .nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        @media(max-width: 768px) { .nav-grid { grid-template-columns: 1fr; } }
+
+        .nav-card {
+            background: var(--metallic-panel);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 14px; padding: 30px; text-decoration: none; color: var(--text-main);
+            box-shadow: 0 15px 45px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            position: relative; overflow: hidden;
+            transition: all 0.3s ease; display: flex; flex-direction: column; gap: 10px;
+        }
+        .nav-card:hover {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 20px 55px rgba(56, 189, 248, 0.3);
+            transform: translateY(-4px);
+        }
+        .nav-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 6px; height: 100%;
+            background: linear-gradient(to bottom, var(--neon-cyan), var(--neon-emerald));
+            box-shadow: 0 0 12px var(--neon-cyan);
+        }
+        .nav-card h3 { font-size: 1.4rem; color: var(--neon-cyan); letter-spacing: 1px; text-shadow: 0 0 8px rgba(56,189,248,0.4); }
+        .nav-card p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.4; }
+
+        /* Modal Overlay for Pair Code */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(5px);
+            display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px;
+        }
+        .modal-content {
+            background: var(--metallic-panel); border: 1px solid rgba(56, 189, 248, 0.4);
+            border-image: var(--metallic-border) 1;
+            border-radius: 14px; width: 100%; max-width: 480px; padding: 35px;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            text-align: center; position: relative;
+        }
+        .modal-content h3 { color: var(--neon-cyan); margin-bottom: 15px; font-size: 1.4rem; letter-spacing: 1px; }
+        .modal-content p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px; line-height: 1.5; }
+        
+        .phone-input-group {
+            display: flex; gap: 10px; margin-bottom: 20px;
+        }
+        .modal-select {
+            background: rgba(2, 6, 23, 0.9); border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 12px 10px; border-radius: 8px; color: var(--text-main); font-size: 0.9rem; outline: none;
+            font-family: 'Courier New', Courier, monospace; width: 150px; cursor: pointer;
+        }
+        .modal-select option { background: #090d16; color: var(--text-main); }
+        .modal-input {
+            flex: 1; background: rgba(2, 6, 23, 0.9); border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 12px 16px; border-radius: 8px; color: var(--text-main); font-size: 1rem; outline: none;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .modal-input:focus, .modal-select:focus { border-color: var(--neon-cyan); box-shadow: 0 0 12px rgba(56,189,248,0.4); }
+
+        .footer-note {
+            text-align: center; margin-top: 40px; font-size: 0.8rem; color: var(--text-muted);
+            letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="wrapper">
+        <header>
+            <div class="logo-area">
+                <h1>NEXON AUTOMATION HUB</h1>
+                <p id="user-info">Cyber-Metallic Control Sub-Grid v3.5</p>
+            </div>
+            <div class="header-controls">
+                <div class="live-badge">
+                    <div class="pulse-dot" id="connection-pulse"></div>
+                    <span id="connection-label">Connecting...</span>
+                </div>
+                <div class="switch-container">
+                    <span id="status-text">BOT OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="bot-toggle" onchange="toggleBotStatus()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <button class="btn-action qr-btn" id="qr-btn-trigger" onclick="checkAndShowQR()">
+                    📱 WhatsApp QR Code
+                </button>
+                <button class="btn-action pair-btn" onclick="openPairCodeModal()">
+                    🔑 Login with Pair Code
+                </button>
+                <button class="btn-action disconnect-btn" onclick="resetSession()">
+                    🔌 Disconnect & Reset
+                </button>
+                <button class="btn-action logout-btn" onclick="logoutUser()">
+                    🚪 Logout
+                </button>
+            </div>
+        </header>
+
+        <div class="stats-ticker">
+            <div class="stat-box">
+                <span>Total VCF Contacts</span>
+                <h4 id="stat-contacts">0</h4>
+            </div>
+            <div class="stat-box">
+                <span>Active Batches</span>
+                <h4 id="stat-batches">0</h4>
+            </div>
+            <div class="stat-box">
+                <span>Scheduled Dispatches</span>
+                <h4 id="stat-scheduled">0</h4>
+            </div>
+        </div>
+
+        <div class="nav-grid">
+            <a href="vcf.html" class="nav-card">
+                <h3>📂 1. VCF Contact Ingestion</h3>
+                <p>Upload vCard files with visual file pickers, parse contacts cleanly, and manage local database records with high security.</p>
+            </a>
+            <a href="fallback.html" class="nav-card">
+                <h3>💬 2. Unknown Fallback Settings</h3>
+                <p>Configure custom auto-reply templates for non-VCF numbers with strict anti-spam cooldown protection rules.</p>
+            </a>
+            <a href="scheduler.html" class="nav-card">
+                <h3>⏰ 3. Message Scheduler & Media</h3>
+                <p>Schedule dispatches to single or multiple contacts with direct computer file browser attachments and multi-format support.</p>
+            </a>
+            <a href="batches.html" class="nav-card">
+                <h3>👥 4. Custom Message Batches</h3>
+                <p>Group contacts into custom batches using live search filters and assign specialized automated responses instantly.</p>
+            </a>
+            <a href="telegram.html" class="nav-card">
+                <h3>🛡️ 5. Telegram Anti-Revoke Logger</h3>
+                <p>Configure independent Telegram API tokens, chat IDs, and manage real-time message/media logger toggle switches.</p>
+            </a>
+            <a href="analytics.html" class="nav-card">
+                <h3>📊 6. Live Analytics & History</h3>
+                <p>Track live dispatches, automated batch responses, and fallback interactions in a comprehensive real-time activity feed.</p>
+            </a>
+        </div>
+
+        <div class="footer-note">
+            <p style="color: #38bdf8; text-shadow: 0 0 10px rgba(56,189,248,0.6);">© 2026 ɴᴇxᴏɴ ᴀᴜᴛᴏᴍᴀᴛɪᴏɴ ɢʀɪᴅ & ʀᴏᴏᴛ-ᴀᴄᴄᴇꜱꜱ ɪɴɪᴛɪᴀʟɪᴢᴇᴅ ʙʏ <span style="color: #38bdf8; font-weight: bold; text-shadow: 0 0 12px rgba(56,189,248,0.9);">𝐃𝐄𝐕𝐈𝐋</span>. ᴀʟʟ ʀɪɢʜᴛꜱ ʀᴇꜱᴇʀᴠᴇᴅ.</p>
+        </div>
+    </div>
+
+    <!-- Pair Code Modal Dialog Box -->
+    <div class="modal-overlay" id="pairCodeModal" onclick="closePairCodeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3>📱 WhatsApp Phone Pairing</h3>
+            <p id="pair-instructions">
+                Select your country, enter your phone number, and generate your 8-digit code.
+            </p>
+            
+            <div class="phone-input-group">
+                <select id="country-code-select" class="modal-select" onchange="updatePhoneValidation()">
+                    <option value="91" selected>India (+91)</option>
+                    <option value="1">USA / Canada (+1)</option>
+                    <option value="44">UK (+44)</option>
+                    <option value="61">Australia (+61)</option>
+                    <option value="49">Germany (+49)</option>
+                    <option value="33">France (+33)</option>
+                    <option value="81">Japan (+81)</option>
+                    <option value="55">Brazil (+55)</option>
+                    <option value="52">Mexico (+52)</option>
+                    <option value="971">UAE (+971)</option>
+                    <option value="966">Saudi Arabia (+966)</option>
+                    <option value="86">China (+86)</option>
+                    <option value="7">Russia (+7)</option>
+                    <option value="39">Italy (+39)</option>
+                    <option value="34">Spain (+34)</option>
+                    <option value="27">South Africa (+27)</option>
+                </select>
+                <input type="text" class="modal-input" id="user-phone-input" placeholder="9876543210" maxlength="12">
+            </div>
+
+            <button class="btn-action pair-btn" id="generate-btn" onclick="requestPairingCode()" style="width: 100%; justify-content: center; margin-bottom: 15px;">
+                Generate 8-Digit Code
+            </button>
+
+            <div id="pairing-code-container" style="margin-top: 20px; display: none;">
+                <p style="margin-bottom: 8px; color: var(--text-muted);">Your 8-Digit WhatsApp Pairing Code:</p>
+                <div id="display-pairing-code" style="font-size: 1.8rem; font-weight: bold; color: var(--neon-emerald); letter-spacing: 3px; background: rgba(2,6,23,0.9); padding: 15px; border-radius: 8px; border: 1px dashed var(--neon-emerald); display: inline-block; width: 100%; text-shadow: 0 0 10px rgba(52,211,153,0.4);">
+                    ---- ----
+                </div>
+                <p style="font-size: 0.75rem; margin-top: 12px; color: var(--text-muted); line-height: 1.4;">
+                    Open WhatsApp on your phone &rarr; Linked Devices &rarr; Link a Device &rarr; Link with phone number instead.
+                </p>
+            </div>
+            <button class="btn-action logout-btn" onclick="closePairCodeModal()" style="margin-top: 15px; width: 100%; justify-content: center;">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function updatePhoneValidation() {
+            const select = document.getElementById('country-code-select');
+            const input = document.getElementById('user-phone-input');
+            const code = select.value;
+            
+            if (code === '91') {
+                input.placeholder = '9876543210';
+                input.maxLength = 10;
+            } else if (code === '1') {
+                input.placeholder = '5551234567';
+                input.maxLength = 10;
+            } else if (code === '44') {
+                input.placeholder = '7911123456';
+                input.maxLength = 10;
+            } else {
+                input.placeholder = 'Enter number';
+                input.maxLength = 12;
+            }
+        }
+
+        function checkAuth() {
+            const urlParams = new URLSearchParams(window.location.search);
+            let userId = urlParams.get('userId');
+
+            if (!userId) {
+                userId = localStorage.getItem('nexonUserId');
+                if (!userId) {
+                    window.location.replace('/index.html');
+                    return null;
+                } else {
+                    window.history.replaceState({}, '', `${window.location.pathname}?userId=${userId}`);
+                }
+            } else {
+                localStorage.setItem('nexonUserId', userId);
+            }
+            
+            document.querySelectorAll('.nav-card').forEach(card => {
+                const baseHref = card.getAttribute('href').split('?')[0];
+                card.setAttribute('href', `${baseHref}?userId=${userId}`);
+            });
+
+            document.getElementById('user-info').textContent = `USER ID: ${userId}`;
+            return userId;
+        }
+
+        function logoutUser() {
+            localStorage.removeItem('nexonUserId');
+            window.location.href = '/index.html';
+        }
+
+        async function checkAndShowQR() {
+            const userId = checkAuth();
+            if (!userId) return;
+            try {
+                const res = await fetch(`/api/status?userId=${userId}`);
+                const data = await res.json();
+                
+                if (data.status === 'connected') {
+                    alert('✅ Success: Your WhatsApp device is already connected!');
+                } else {
+                    window.location.href = `/qr?userId=${userId}`;
+                }
+            } catch (e) {
+                window.location.href = `/qr?userId=${userId}`;
+            }
+        }
+
+        async function openPairCodeModal() {
+            const userId = checkAuth();
+            if (!userId) return;
+
+            try {
+                const res = await fetch(`/api/status?userId=${userId}`);
+                const data = await res.json();
+                
+                if (data.status === 'connected') {
+                    alert('✅ Success: Your WhatsApp device is already connected!');
+                    return;
+                }
+            } catch (e) {
+                console.error('Status check error:', e);
+            }
+
+            document.getElementById('pairCodeModal').style.display = 'flex';
+            updatePhoneValidation();
+        }
+
+        function closePairCodeModal() {
+            document.getElementById('pairCodeModal').style.display = 'none';
+            document.getElementById('pairing-code-container').style.display = 'none';
+            document.getElementById('user-phone-input').value = '';
+        }
+
+        async function requestPairingCode() {
+            const userId = checkAuth();
+            if (!userId) return;
+            
+            const countryCode = document.getElementById('country-code-select').value;
+            const rawNumber = document.getElementById('user-phone-input').value.trim().replace(/[^0-9]/g, '');
+            const generateBtn = document.getElementById('generate-btn');
+
+            if (!rawNumber || rawNumber.length < 7) {
+                alert('Please enter a valid phone number.');
+                return;
+            }
+
+            const phoneNumber = countryCode + rawNumber;
+
+            generateBtn.textContent = 'Generating...';
+            generateBtn.disabled = true;
+
+            try {
+                const res = await fetch('/api/request-pairing-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, phoneNumber })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success' && data.pairingCode) {
+                    document.getElementById('display-pairing-code').textContent = data.pairingCode;
+                    document.getElementById('pairing-code-container').style.display = 'block';
+                } else {
+                    alert('Error: ' + (data.status || 'Could not generate pairing code'));
+                }
+            } catch (err) {
+                alert('Failed to connect to server for pairing code.');
+            } finally {
+                generateBtn.textContent = 'Generate 8-Digit Code';
+                generateBtn.disabled = false;
+            }
+        }
+
+        async function fetchSystemStatus() {
+            const userId = checkAuth();
+            if (!userId) return;
+            try {
+                const res = await fetch(`/api/status?userId=${userId}`);
+                const data = await res.json();
+                
+                const dot = document.getElementById('connection-pulse');
+                const label = document.getElementById('connection-label');
+                const toggle = document.getElementById('bot-toggle');
+                const statusText = document.getElementById('status-text');
+
+                document.getElementById('stat-contacts').textContent = data.totalContacts || 0;
+                document.getElementById('stat-batches').textContent = data.activeBatches || 0;
+                document.getElementById('stat-scheduled').textContent = data.scheduledCount || 0;
+
+                if (data.status === 'connected') {
+                    dot.className = 'pulse-dot connected';
+                    label.textContent = 'WhatsApp Connected';
+                } else if (data.status === 'qr_waiting') {
+                    dot.className = 'pulse-dot qr';
+                    label.textContent = 'Scan QR Code Required';
+                } else {
+                    dot.className = 'pulse-dot';
+                    label.textContent = 'Disconnected';
+                }
+
+                if (toggle.checked !== data.enabled) {
+                    toggle.checked = data.enabled;
+                    statusText.textContent = data.enabled ? "BOT ON" : "BOT OFF";
+                    statusText.style.color = data.enabled ? "var(--neon-emerald)" : "var(--neon-rose)";
+                }
+            } catch (err) { console.error('Status fetch error:', err); }
+        }
+
+        async function toggleBotStatus() {
+            const userId = checkAuth();
+            if (!userId) return;
+            const isChecked = document.getElementById('bot-toggle').checked;
+            const statusText = document.getElementById('status-text');
+            statusText.textContent = isChecked ? "BOT ON" : "BOT OFF";
+            statusText.style.color = isChecked ? "var(--neon-emerald)" : "var(--neon-rose)";
+            
+            await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, enabled: isChecked })
+            });
+        }
+
+        async function resetSession() {
+            const userId = checkAuth();
+            if (!userId) return;
+            if (!confirm("⚠️ Kya aap sach mein current device disconnect karke naya connection establish karna chahte hain?")) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/reset-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+                
+                const data = await response.json();
+                alert(data.status);
+                setTimeout(() => { window.location.reload(); }, 2000);
+            } catch (err) {
+                alert('❌ Error resetting session: ' + err.message);
+            }
+        }
+
+        window.onload = () => {
+            const uid = checkAuth();
+            if (uid) {
+                fetchSystemStatus();
+                setInterval(fetchSystemStatus, 3000);
+            }
+        };
+    </script>
+</body>
+</html>

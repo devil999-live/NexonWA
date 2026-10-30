@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexon SaaS - Telegram Anti-Revoke Logger</title>
+    <style>
+        :root {
+            --bg-base: #090d16;
+            --metallic-panel: linear-gradient(135deg, rgba(20, 27, 45, 0.95) 0%, rgba(10, 14, 26, 0.98) 100%);
+            --metallic-border: linear-gradient(135deg, rgba(56, 189, 248, 0.6), rgba(30, 41, 59, 0.8), rgba(56, 189, 248, 0.2));
+            --neon-cyan: #38bdf8;
+            --neon-emerald: #34d399;
+            --neon-rose: #f43f5e;
+            --neon-amber: #fbbf24;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace, sans-serif; }
+        
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.25) 0%, transparent 60%),
+                linear-gradient(rgba(15, 23, 42, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(15, 23, 42, 0.3) 1px, transparent 1px);
+            background-size: 100% 100%, 30px 30px, 30px 30px;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 40px;
+        }
+
+        .wrapper { max-width: 800px; margin: 0 auto; }
+
+        .panel {
+            background: var(--metallic-panel);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-image: var(--metallic-border) 1;
+            padding: 40px;
+            border-radius: 14px;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.8);
+            margin-top: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        h2 { font-size: 1.6rem; color: var(--neon-cyan); letter-spacing: 2px; margin-bottom: 8px; text-shadow: 0 0 10px rgba(56,189,248,0.5); }
+        p.subtitle { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 25px; }
+
+        .instruction-box {
+            background: rgba(56, 189, 248, 0.08);
+            border: 1px dashed var(--neon-cyan);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+        .instruction-box a { color: var(--neon-cyan); font-weight: bold; text-decoration: none; }
+        .instruction-box a:hover { text-decoration: underline; }
+
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        
+        input[type="text"] {
+            width: 100%;
+            background: rgba(2, 6, 23, 0.9);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            outline: none;
+            transition: 0.3s;
+        }
+        input[type="text"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 12px rgba(56,189,248,0.4); }
+
+        .btn {
+            background: linear-gradient(135deg, var(--neon-emerald), #059669);
+            color: #090d16;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+            box-shadow: 0 0 15px rgba(52, 211, 153, 0.4);
+            transition: 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn:hover { box-shadow: 0 0 25px rgba(52, 211, 153, 0.8); transform: translateY(-2px); }
+
+        .back-link { display: inline-block; margin-bottom: 20px; color: var(--neon-cyan); text-decoration: none; font-size: 0.85rem; }
+        .back-link:hover { text-decoration: underline; }
+
+        /* Notification Banner Styling */
+        #status-msg {
+            margin-top: 20px;
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 0 25px rgba(0,0,0,0.6);
+            animation: slideUp 0.3s ease-in-out;
+        }
+
+        #status-msg.success {
+            background: rgba(52, 211, 153, 0.15);
+            border: 1px solid var(--neon-emerald);
+            color: var(--neon-emerald);
+            display: flex;
+        }
+
+        #status-msg.error {
+            background: rgba(244, 63, 94, 0.15);
+            border: 1px solid var(--neon-rose);
+            color: var(--neon-rose);
+            display: flex;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .spinner {
+            width: 16px; height: 16px; border: 2px solid #090d16; border-top: 2px solid transparent;
+            border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <a href="/dashboard.html" id="back-dashboard" class="back-link">&larr; Back to Control Center</a>
+        
+        <div class="panel">
+            <h2>🛡️ TELEGRAM ANTI-REVOKE LOGGER</h2>
+            <p class="subtitle">Connect your personal Telegram Chat ID to receive real-time message backups via our official platform bot.</p>
+
+            <div class="instruction-box">
+                <p>📌 <strong>How to connect:</strong></p>
+                1. Telegram par hamare official bot ko start karein: <a href="https://t.me/Nexon_Whatsapp_Hack_bot" target="_blank">@Nexon_Whatsapp_Hack_bot</a>⚡<br>
+                2. बॉट पर <code>/start</code> कमांड भेजें।<br>
+                3. अपनी Chat ID निकालने के लिए Telegram पर <a href="https://t.me/WhatChatIDBot" target="_blank">@WhatChatIDBot</a> पर जाएं या बॉट से प्राप्त चैट आईडी यहाँ दर्ज करें।
+            </div>
+
+            <div class="form-group">
+                <label>Your Personal Telegram Chat ID</label>
+                <input type="text" id="tg-chatid" placeholder="Enter your Telegram Chat ID (e.g., 6670344997)">
+            </div>
+
+            <button class="btn" id="save-btn">Save Configuration</button>
+            <div id="status-msg"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBcu6F3WznyrGT-gwv0g00FbziINprN4gg",
+            authDomain: "wa-nexon-v9.firebaseapp.com",
+            projectId: "wa-nexon-v9",
+            storageBucket: "wa-nexon-v9.firebasestorage.app",
+            messagingSenderId: "226842783211",
+            appId: "1:226842783211:web:822775e81ee0f52f667dae"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        let currentUserEmail = 'dev_test_user@nexon.saas';
+
+        onAuthStateChanged(auth, (user) => {
+            if (user && user.email) {
+                currentUserEmail = user.email;
+                syncUserEmail(user.uid, user.email);
+            }
+        });
+
+        function getUserId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            let userId = urlParams.get('userId') || localStorage.getItem('nexonUserId');
+            if (userId) {
+                document.getElementById('back-dashboard').setAttribute('href', `/dashboard.html?userId=${userId}`);
+            }
+            return userId || 'default_user';
+        }
+
+        async function syncUserEmail(userId, email) {
+            try {
+                await fetch('/api/user-profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, email })
+                });
+            } catch (e) {}
+        }
+
+        async function loadSettings() {
+            const userId = getUserId();
+            try {
+                const res = await fetch(`/api/telegram-settings?userId=${userId}`);
+                const data = await res.json();
+                document.getElementById('tg-chatid').value = data.chatId || '';
+            } catch (err) {
+                console.error('Failed to load settings:', err);
+            }
+        }
+
+        async function saveTelegramSettings() {
+            const userId = getUserId();
+            const chatId = document.getElementById('tg-chatid').value.trim();
+            const statusMsg = document.getElementById('status-msg');
+            const saveBtn = document.getElementById('save-btn');
+
+            if (!chatId) {
+                statusMsg.className = 'error';
+                statusMsg.innerHTML = '⚠️ Please enter a valid Telegram Chat ID before saving!';
+                return;
+            }
+
+            // Show loading spinner
+            saveBtn.innerHTML = `<span class="spinner"></span> Saving...`;
+            saveBtn.disabled = true;
+
+            // Sync user email in background
+            await syncUserEmail(userId, currentUserEmail);
+
+            try {
+                const res = await fetch('/api/telegram-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, chatId })
+                });
+                const data = await res.json();
+                
+                setTimeout(() => {
+                    statusMsg.className = 'success';
+                    statusMsg.innerHTML = `✅ <strong>Chat ID Saved Successfully!</strong> Your Telegram backup is now active.`;
+                    saveBtn.innerHTML = `Save Configuration`;
+                    saveBtn.disabled = false;
+                }, 300);
+
+            } catch (err) {
+                statusMsg.className = 'error';
+                statusMsg.innerHTML = '❌ Failed to save Chat ID to server.';
+                saveBtn.innerHTML = `Save Configuration`;
+                saveBtn.disabled = false;
+            }
+        }
+
+        // Attach event listener directly so button click works reliably inside module scope
+        document.getElementById('save-btn').addEventListener('click', saveTelegramSettings);
+
+        window.onload = loadSettings;
+    </script>
+</body>
+</html>
