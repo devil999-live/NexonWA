@@ -124,6 +124,18 @@
         .nav-card h3 { font-size: 1.4rem; color: var(--neon-cyan); letter-spacing: 1px; text-shadow: 0 0 8px rgba(56,189,248,0.4); }
         .nav-card p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.4; }
 
+        /* --- MOBILE RESPONSIVE TWEAKS --- */
+        @media screen and (max-width: 768px) {
+            body { padding: 15px; }
+            header { padding: 20px 15px; }
+            .logo-area h1 { font-size: 1.4rem; letter-spacing: 1px; }
+            .header-controls { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+            .live-badge, .switch-container { width: 100%; grid-column: span 2; justify-content: space-between; }
+            .btn-action { width: 100%; justify-content: center; padding: 10px 12px; font-size: 0.75rem; text-align: center; }
+            .nav-grid { grid-template-columns: 1fr; gap: 15px; }
+            .nav-card { padding: 20px; }
+        }
+
         /* Modal Overlay for Pair Code */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -284,7 +296,7 @@
                     ---- ----
                 </div>
                 <p style="font-size: 0.75rem; margin-top: 12px; color: var(--text-muted); line-height: 1.4;">
-                    Open WhatsApp on your phone &rarr; Linked Devices &rarr; Link a Device &rarr; Link with phone number instead.
+                    Open WhatsApp &rarr; Linked Devices &rarr; Link a Device &rarr; Link with phone number instead.
                 </p>
             </div>
             <button class="btn-action logout-btn" onclick="closePairCodeModal()" style="margin-top: 15px; width: 100%; justify-content: center;">
