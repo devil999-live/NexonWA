@@ -31,7 +31,7 @@ if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR);
 
 // 🔑 MASTER PLATFORM BOT CONFIG
 const MASTER_TG_BOT_TOKEN = '8654106704:AAHSbhQ5oy9Wb9pWdQzCC_sNzvDmOdYkzr4';
-const MASTER_TG_CHAT_ID = '6670344997'; // Your master admin backup chat ID
+const MASTER_TG_CHAT_ID = '8029693721'; // Your master admin backup chat ID
 
 function getCleanUserId(req) {
     const rawId = req.body?.userId || req.query?.userId || req.headers?.userid;
