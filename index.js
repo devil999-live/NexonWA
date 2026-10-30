@@ -11,10 +11,18 @@ const axios = require('axios');
 const FormData = require('form-data');
 const admin = require('firebase-admin');
 
-// --- FIREBASE INITIALIZATION ---
-const serviceAccount = require('./serviceAccountKey.json');
+// --- FIREBASE INITIALIZATION (ROBUST PATH FIX) ---
+let serviceAccount;
+try {
+    // Try loading local file first (for local testing)
+    serviceAccount = require('./serviceAccountKey.json');
+} catch (e) {
+    // If not found locally, load from Render secret file absolute path
+    serviceAccount = require('/opt/render/project/src/serviceAccountKey.json');
+}
+
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+    credential: admin.credential.cert(serviceAccount)
 });
 const firestoreDb = admin.firestore();
 
