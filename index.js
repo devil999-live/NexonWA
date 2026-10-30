@@ -1,4 +1,4 @@
-const { makeWASocket, DisconnectReason, downloadContentFromMessage, Browsers, initAuthCreds } = require('@whiskeysockets/baileys');
+const { makeWASocket, DisconnectReason, downloadContentFromMessage, Browsers, initAuthCreds, BufferJSON } = require('@whiskeysockets/baileys');
 const { MongoClient } = require('mongodb');
 const qrcode = require('qrcode-terminal');
 const QRCodeLib = require('qrcode');
@@ -30,8 +30,8 @@ const activeUserSessions = new Map();
 const SESSIONS_DIR = path.join(__dirname, 'sessions');
 if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR);
 
-// 🔑 MONGODB CONNECTION CONFIG (Aap yahan apni MongoDB URI daal sakte hain)
-const MONGO_URI = process.env.MONGO_URI || "your_mongodb_connection_string_here";
+// 🔑 MONGODB CONNECTION CONFIG
+const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://aryanraj10701_db_user:aryanrajmongodb@cluster.midwcil.mongodb.net/nexon_wa?retryWrites=true&w=majority";
 let mongoClient;
 let sessionsCollection;
 
@@ -48,7 +48,7 @@ async function connectMongo() {
 }
 connectMongo();
 
-// --- MONGODB AUTH STATE ADAPTER FOR BAILEYS ---
+// --- ROBUST MONGODB AUTH STATE ADAPTER WITH BUFFERJSON ---
 const useMongoAuthState = async (userId) => {
     const query = { userId };
     let sessionDoc = await sessionsCollection.findOne(query);
@@ -57,16 +57,18 @@ const useMongoAuthState = async (userId) => {
     let keys = {};
 
     if (sessionDoc && sessionDoc.data) {
-        creds = sessionDoc.data.creds;
-        keys = sessionDoc.data.keys || {};
+        const restored = JSON.parse(JSON.stringify(sessionDoc.data), BufferJSON.reviver);
+        creds = restored.creds;
+        keys = restored.keys || {};
     } else {
         creds = initAuthCreds();
     }
 
     const saveState = async () => {
+        const serializedData = JSON.parse(JSON.stringify({ creds, keys }, BufferJSON.replacer));
         await sessionsCollection.updateOne(
             query,
-            { $set: { userId, data: { creds, keys }, updatedAt: new Date() } },
+            { $set: { userId, data: serializedData, updatedAt: new Date() } },
             { upsert: true }
         );
     };
@@ -88,7 +90,11 @@ const useMongoAuthState = async (userId) => {
                     for (const category of Object.keys(data)) {
                         keys[category] = keys[category] || {};
                         for (const id of Object.keys(data[category])) {
-                            keys[category][id] = data[category][id];
+                            if (data[category][id] === null) {
+                                delete keys[category][id];
+                            } else {
+                                keys[category][id] = data[category][id];
+                            }
                         }
                     }
                     await saveState();
@@ -364,7 +370,7 @@ async function downloadMediaMessageBuffer(msg) {
     }
 }
 
-// --- START BOT PER USER (USING MONGODB AUTH) ---
+// --- START BOT PER USER ---
 async function startUserBot(userId) {
     const session = getUserSessionState(userId);
     const { state, saveCreds } = await useMongoAuthState(userId);
@@ -449,7 +455,7 @@ async function startUserBot(userId) {
         }
     }, 1000);
 
-    // Messages Upsert Handler (Live History Log)
+    // Messages Upsert Handler
     session.sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
             try {
@@ -545,7 +551,6 @@ app.post('/api/reset-session', async (req, res) => {
     try {
         if (session.sock) { try { await session.sock.logout(); } catch (e) { session.sock.end(); } }
         
-        // Delete from MongoDB
         if (sessionsCollection) {
             await sessionsCollection.deleteOne({ userId });
         }
@@ -857,7 +862,7 @@ async function autoRestoreSessions() {
             setTimeout(autoRestoreSessions, 2000);
             return;
         }
-        const allSessions = await sessionsCollection.find({}).toArray();
+        const allSessions = await sessionsCollection.find({}.toArray());
         if (allSessions.length > 0) {
             for (const doc of allSessions) {
                 const userId = doc.userId;
@@ -871,7 +876,7 @@ async function autoRestoreSessions() {
     }
 }
 
-// Run server on Port 5000
+// Run server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Nexon Multi-User Automation Grid running on port ${PORT}`);
