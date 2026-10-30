@@ -11,27 +11,23 @@ const axios = require('axios');
 const FormData = require('form-data');
 const admin = require('firebase-admin');
 
-// --- FIREBASE INITIALIZATION WITH SAFETY CHECKS ---
-const firebaseConfig = {
-    type: "service_account",
-    project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
-    client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    client_id: process.env.FIREBASE_CLIENT_ID,
-    auth_uri: "https://accounts.google.com/o/oauth2/auth",
-    token_uri: "https://oauth2.googleapis.com/token",
-    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-    client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL,
-    universe_domain: "googleapis.com"
+// --- FIREBASE INITIALIZATION DIRECTLY WITH EMBEDDED CREDENTIALS ---
+const serviceAccount = {
+  "type": "service_account",
+  "project_id": "wa-nexon-v9",
+  "private_key_id": "a05e93b70a5098db89a0b52b7eed9cf5558a357a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCpVNXW31NrNUh9\nQCwHGmDuXSJ9uja0wv1Z9EM7qJQALQqIENBq/GVUpq5ZGEqGjIfIyGFcykkjXlM0\nufp+XB9HIW6rvYDn8linUd3oYmVbrYcuPbT0cazUP7EGThH6yHiYIxHR3ZvXLmQ7\n7mnRk1vk/gmc6KpoyEls71K5BhHMK5pd+Pqc7gHLfLeZNeceOCElKxu9vcr9k/qV\nkbk3VwOTE9pNLL0Z2dDqbDIS43WCpcsMGEokrJUZYmoWhmi0SlMn6QXr2DC0XHV2\nb4RpmFtpN5+68uwy7aE+dfk6bjGGO2K/UwziBMqLWKIVSLCTG8AlplgvB1Wo+Hm6\n1mQebEG1AgMBAAECggEAEGUr7UmjUJKQqbvwZ2Go9/thjw3cJSVqFW8eoWShq+Cw\nj9sc6vb0Mr2OzQaalKt/rDOmpa7aZQfJg6XsOJbf2mnExvEqzYp8BftZwpngWX+U\nQqhr4G0vQD/IeqVNfVwyvPxMSecsoymVP+5GJaogcCwerygh89JMtbT4a/zH9V4t\nCqlii0D8UbMvR2VUaCWxyM9viYzYZGvbVwfa/Hd9CxkzOyGjxZ8djvTstdnA1jH5\ngij3yIN/4LmvBYDdkoRf5IOxcabya+QIMGgkke/jQvQum/Lv4wE7j9eVqph6fB13\n2ruzvqKMhVH8i0tvpaWa/2jgnS3lNwxD6swEB22osQKBgQDcSfws2D1R8o9XzcAH\n3ZGTpY9ZGswIonkkR/KwxVy8PfT3zQrL43KpLrEdjoqHwRD/QZ64U636DrYq/lQb\nMG/JTtWmjy6izaj8JfVQJi4gHZqT8+TdvAeCONA19MxGc8M1gtkXCph7ofuK0jzT\neOh8Em7YskRaSpBQxPdLVTIGHQKBgQDEyBqwp6RCFdNfpnsvaoXq5MLRqkBUoX6J\nIWq/P8A+eT0MZ3KSndQD2EZHYQxZX+rHtfYNSd9iVGsaEl8UwaRXLlFxV1yOQCou\nesOhXocMkFIgICbar5OoAWz6mI2FdpBNqhE/4ORYHXy5xkjiuhd7yfU7ljz8LY03\nisg/zO52eQKBgQDQPfxuZChrjDHnXe/3P4Q7n9mH8SYJz5VXL9CDPL8ykBtAGYvo\nO+YLesEh4LqiJGet9VlWhHxFk5yvvebCISK7mZOstVPvwRzK6BMjpkQaRgH3dSrY\nVcR/XLevGe/1db+GmWAhQPnufaztiVrIylZz23T/0l19QVl1kQz5INt+HQKBgC0q\nSIX3VEoevE8d5PQzHN2W9+grjWxfTK2oz9lphnRQW2S3caKZOwpO34KOkckJrNd9\nuiW+qNjmy1ZGlTAsac3gwaykAohbzdKxNqmZCqIlldPtzT0wQ1GyUhMKZKEXX3OT\n7zWcJoza57+z9RKk57Lv3at5hjHTOrBe2Ctcm/bxAoGASMhq2jrNkHRJQAwwP3dk\nEnFbxUlDbFviUc6DhucjxUk0qebehqKwazzg+QcEaT3eZH9idsML7FX9XmUTXHCi\nkVHCnjKFXIWZRN1FabdsDDKcf8PQNt8jyP3/n191YQ7KXhz3LWngQnbNLi1huPjB\nEukXVYqozDX4h9Pn6lX7Q/Y=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@wa-nexon-v9.iam.gserviceaccount.com",
+  "client_id": "117957276812496353826",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40wa-nexon-v9.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
 };
 
-if (!firebaseConfig.project_id || !firebaseConfig.private_key || !firebaseConfig.client_email) {
-    console.error("❌ ERRORED: Firebase environment variables are missing or undefined!");
-}
-
 admin.initializeApp({
-    credential: admin.credential.cert(firebaseConfig)
+  credential: admin.credential.cert(serviceAccount)
 });
 const firestoreDb = admin.firestore();
 
