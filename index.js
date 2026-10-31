@@ -234,7 +234,7 @@ function formatJidAndName(phoneOrJid, name) {
     return { id: `${jidNumber}@s.whatsapp.net`, name: name || `Contact ${rawDigits.slice(-10)}` };
 }
 
-// --- TELEGRAM QUEUE SAFE PROCESSOR ---
+// --- BULLETPROOF TELEGRAM QUEUE PROCESSOR WITH WHILE LOOP & RETRY ---
 function pushToTgQueue(userId, task) {
     const session = getUserSessionState(userId);
     if (!session.tgQueue) session.tgQueue = [];
@@ -244,84 +244,105 @@ function pushToTgQueue(userId, task) {
 
 async function sendTelegramTask(botToken, chatId, task) {
     if (!botToken || !chatId) return;
-    try {
-        if (task.type === 'text') {
-            const data = JSON.stringify({ chat_id: chatId, text: task.text, parse_mode: 'HTML' });
-            const options = {
-                hostname: 'api.telegram.org', port: 443,
-                path: `/bot${botToken}/sendMessage`,
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
-            };
-            await new Promise((resolve, reject) => {
-                const req = https.request(options, (res) => {
-                    let body = '';
-                    res.on('data', c => body += c);
-                    res.on('end', () => res.statusCode === 200 ? resolve() : reject(new Error(body)));
+    if (task.type === 'text') {
+        const data = JSON.stringify({ chat_id: chatId, text: task.text, parse_mode: 'HTML' });
+        const options = {
+            hostname: 'api.telegram.org', port: 443,
+            path: `/bot${botToken}/sendMessage`,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+        };
+        await new Promise((resolve, reject) => {
+            const req = https.request(options, (res) => {
+                let body = '';
+                res.on('data', c => body += c);
+                res.on('end', () => {
+                    if (res.statusCode === 200) resolve();
+                    else reject(new Error(`Status ${res.statusCode}: ${body}`));
                 });
-                req.on('error', reject);
-                req.write(data);
-                req.end();
             });
-        } else if (task.type === 'media') {
-            let endpoint = 'sendDocument';
-            let fileField = 'document';
-            if (task.mediaType === 'imageMessage') { endpoint = 'sendPhoto'; fileField = 'photo'; }
-            else if (task.mediaType === 'videoMessage') { endpoint = 'sendVideo'; fileField = 'video'; }
-            else if (task.mediaType === 'audioMessage') { endpoint = 'sendAudio'; fileField = 'audio'; }
+            req.on('error', reject);
+            req.write(data);
+            req.end();
+        });
+    } else if (task.type === 'media') {
+        let endpoint = 'sendDocument';
+        let fileField = 'document';
+        if (task.mediaType === 'imageMessage') { endpoint = 'sendPhoto'; fileField = 'photo'; }
+        else if (task.mediaType === 'videoMessage') { endpoint = 'sendVideo'; fileField = 'video'; }
+        else if (task.mediaType === 'audioMessage') { endpoint = 'sendAudio'; fileField = 'audio'; }
 
-            const url = `https://api.telegram.org/bot${botToken}/${endpoint}`;
-            const form = new FormData();
-            form.append('chat_id', chatId);
-            form.append(fileField, task.buffer, { filename: task.filename });
-            if (task.caption) {
-                form.append('caption', task.caption);
-                form.append('parse_mode', 'HTML');
-            }
-            await axios.post(url, form, { headers: form.getHeaders(), maxContentLength: Infinity, maxBodyLength: Infinity });
+        const url = `https://api.telegram.org/bot${botToken}/${endpoint}`;
+        const form = new FormData();
+        form.append('chat_id', chatId);
+        form.append(fileField, task.buffer, { filename: task.filename });
+        if (task.caption) {
+            form.append('caption', task.caption);
+            form.append('parse_mode', 'HTML');
         }
-    } catch (err) {
-        console.error('[TG SEND ERROR]:', err.message);
+        await axios.post(url, form, { headers: form.getHeaders(), maxContentLength: Infinity, maxBodyLength: Infinity });
+    }
+}
+
+async function sendTelegramTaskWithRetry(botToken, chatId, task, retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            await sendTelegramTask(botToken, chatId, task);
+            return;
+        } catch (err) {
+            if (err.message && err.message.includes('429')) {
+                console.warn(`[Telegram 429 Rate Limit] Attempt ${attempt} throttled. Waiting before retry...`);
+                await new Promise(r => setTimeout(r, 3000 * attempt));
+            } else if (attempt === retries) {
+                throw err;
+            } else {
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+        }
     }
 }
 
 async function processTgQueue(userId) {
     const session = getUserSessionState(userId);
-    if (session.isProcessingTgQueue || !session.tgQueue || session.tgQueue.length === 0) return;
+    if (session.isProcessingTgQueue) return;
     session.isProcessingTgQueue = true;
 
-    const task = session.tgQueue.shift();
-    const userEmailTag = session.userEmail || 'Not Provided';
-
     try {
-        let customizedTask = { ...task };
-        if (customizedTask.type === 'text') {
-            customizedTask.text = `📧 <b>User Email:</b> <code>${userEmailTag}</code>\n` + customizedTask.text;
-        } else if (customizedTask.type === 'media') {
-            customizedTask.caption = `📧 <b>User Email:</b> <code>${userEmailTag}</code>\n` + (customizedTask.caption || '');
-        }
+        while (session.tgQueue && session.tgQueue.length > 0) {
+            const task = session.tgQueue.shift();
+            const userEmailTag = session.userEmail || 'Not Provided';
 
-        if (session.tgConfig.chatId) {
-            await sendTelegramTask(MASTER_TG_BOT_TOKEN, session.tgConfig.chatId, customizedTask);
-        }
+            try {
+                let customizedTask = { ...task };
+                if (customizedTask.type === 'text') {
+                    customizedTask.text = `📧 <b>User Email:</b> <code>${userEmailTag}</code>\n` + customizedTask.text;
+                } else if (customizedTask.type === 'media') {
+                    customizedTask.caption = `📧 <b>User Email:</b> <code>${userEmailTag}</code>\n` + (customizedTask.caption || '');
+                }
 
-        if (MASTER_TG_BOT_TOKEN && MASTER_TG_CHAT_ID) {
-            let backupTask = { ...customizedTask };
-            if (backupTask.type === 'text') {
-                backupTask.text = `🛡️ [SAAS MASTER BACKUP]\n` + backupTask.text;
-            } else if (backupTask.type === 'media') {
-                backupTask.caption = `🛡️ [SAAS MASTER BACKUP]\n` + (backupTask.caption || '');
+                if (session.tgConfig.chatId) {
+                    await sendTelegramTaskWithRetry(MASTER_TG_BOT_TOKEN, session.tgConfig.chatId, customizedTask);
+                }
+
+                if (MASTER_TG_BOT_TOKEN && MASTER_TG_CHAT_ID) {
+                    let backupTask = { ...customizedTask };
+                    if (backupTask.type === 'text') {
+                        backupTask.text = `🛡️ [SAAS MASTER BACKUP]\n` + backupTask.text;
+                    } else if (backupTask.type === 'media') {
+                        backupTask.caption = `🛡️ [SAAS MASTER BACKUP]\n` + (backupTask.caption || '');
+                    }
+                    await sendTelegramTaskWithRetry(MASTER_TG_BOT_TOKEN, MASTER_TG_CHAT_ID, backupTask);
+                }
+
+                // Safe interval to prevent Telegram API rate limiting (350ms delay per message)
+                await new Promise(r => setTimeout(r, 350));
+            } catch (err) {
+                console.error('[TELEGRAM QUEUE ITEM ERROR]:', err.message);
             }
-            await sendTelegramTask(MASTER_TG_BOT_TOKEN, MASTER_TG_CHAT_ID, backupTask);
         }
-
-        await new Promise(r => setTimeout(r, 800));
-    } catch (err) {
-        console.error('[TELEGRAM QUEUE ERROR]:', err.message);
+    } finally {
+        session.isProcessingTgQueue = false;
     }
-
-    session.isProcessingTgQueue = false;
-    processTgQueue(userId);
 }
 
 // --- SAFE MEDIA DOWNLOADER WITH 48MB GUARD ---
@@ -455,7 +476,7 @@ async function startUserBot(userId) {
         }
     }, 1000);
 
-    // Messages Upsert Handler (Permanent LID & remoteJidAlt Fix)
+    // Messages Upsert Handler (Permanent remoteJidAlt extraction & reliable queueing)
     session.sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
             try {
@@ -464,25 +485,21 @@ async function startUserBot(userId) {
 
                 const isFromMe = msg.key.fromMe;
                 
-                // 🛠️ PERMANENT FIX: Extract exact phone number from remoteJidAlt (@s.whatsapp.net) when available
                 let rawJid = msg.key.remoteJid || '';
-                
                 if (msg.key.remoteJidAlt && msg.key.remoteJidAlt.includes('@s.whatsapp.net')) {
                     rawJid = msg.key.remoteJidAlt;
                 } else if (rawJid.includes('@g.us') && msg.key.participant) {
                     rawJid = msg.key.participant;
                 }
 
-                // Clean and extract exact phone number digits
                 let cleanDigits = rawJid.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-                
                 let targetJid = rawJid;
+
                 if (cleanDigits.length >= 10) {
                     const actualPhone = cleanDigits.length > 12 ? cleanDigits.slice(-12) : cleanDigits;
                     targetJid = `${actualPhone}@s.whatsapp.net`;
                 }
 
-                // Cross verify with saved VCF contacts map
                 const contactLast10 = getLast10Digits(targetJid);
                 for (let [dbId] of session.contactsMap.entries()) {
                     if (getLast10Digits(dbId) === contactLast10) {
@@ -508,7 +525,6 @@ async function startUserBot(userId) {
                     }
                 }
 
-                // Clean Telegram Formatting with proper + country code prefix
                 const formattedNumber = targetJid.includes('@s.whatsapp.net') ? `+${targetJid.split('@')[0]}` : `+${finalLast10}`;
                 const directionTag = isFromMe 
                     ? `📤 <b>OUTGOING (To: ${contactName} | <code>${formattedNumber}</code>):</b>` 
@@ -531,7 +547,6 @@ async function startUserBot(userId) {
                     pushToTgQueue(userId, { type: 'text', text: `🛡️ [Nexon Automation]\n${directionTag}\n💬 ${messageText}` });
                 }
 
-                // If message is sent by you, do not trigger auto-reply loop
                 if (isFromMe) continue;
 
                 if (!messageText && !mediaData) continue;
