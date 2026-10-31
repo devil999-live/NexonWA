@@ -157,12 +157,12 @@
         <h2>NEXON PORTAL</h2>
         <div class="subtitle">Cyber-Metallic Multi-User Gateway</div>
 
-        <!-- INSTANT DEV TEST MODE
+        <!-- INSTANT DEV TEST MODE -->
         <div class="test-box">
             <label style="color: var(--neon-cyan); margin-bottom: 6px;">⚡ Instant Developer Test Mode</label>
             <input type="text" id="dev-user-id" placeholder="Enter test username (e.g., aryan)">
             <button class="btn btn-emerald" onclick="loginDevMode()" style="margin-top: 8px;">Quick Test Login</button>
-        </div> -->
+        </div> 
 
         <div class="tabs">
             <div class="tab active" onclick="switchTab('login')">Sign In</div>
@@ -183,7 +183,7 @@
             <button class="btn google-btn" onclick="loginGoogle()">Sign In with Google</button>
         </div>
 
-        <!-- SIGNUP SECTION (QR Code removed from here) -->
+        <!-- SIGNUP SECTION -->
         <div id="signup-section" class="form-section">
             <div class="form-group">
                 <label>New Email Address</label>
@@ -245,6 +245,20 @@
             window.location.href = `/dashboard.html?userId=${cleanUid}`;
         };
 
+        // Helper function to sync email profile with the backend
+        async function syncUserProfile(userId, email) {
+            if (!email) return;
+            try {
+                await fetch('/api/user-profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, email })
+                });
+            } catch (err) {
+                console.error('Failed to sync profile email:', err);
+            }
+        }
+
         window.loginEmail = async () => {
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
@@ -252,8 +266,11 @@
             errorEl.textContent = '';
             try {
                 const res = await signInWithEmailAndPassword(auth, email, password);
-                localStorage.setItem('nexonUserId', res.user.uid);
-                window.location.href = `/dashboard.html?userId=${res.user.uid}`;
+                const uid = res.user.uid;
+                const userEmail = res.user.email || email;
+                localStorage.setItem('nexonUserId', uid);
+                await syncUserProfile(uid, userEmail);
+                window.location.href = `/dashboard.html?userId=${uid}`;
             } catch (err) { errorEl.textContent = '❌ ' + err.message; }
         };
 
@@ -264,8 +281,11 @@
             errorEl.textContent = '';
             try {
                 const res = await createUserWithEmailAndPassword(auth, email, password);
-                localStorage.setItem('nexonUserId', res.user.uid);
-                window.location.href = `/dashboard.html?userId=${res.user.uid}`;
+                const uid = res.user.uid;
+                const userEmail = res.user.email || email;
+                localStorage.setItem('nexonUserId', uid);
+                await syncUserProfile(uid, userEmail);
+                window.location.href = `/dashboard.html?userId=${uid}`;
             } catch (err) { errorEl.textContent = '❌ ' + err.message; }
         };
 
@@ -275,8 +295,16 @@
             const provider = new GoogleAuthProvider();
             try {
                 const res = await signInWithPopup(auth, provider);
-                localStorage.setItem('nexonUserId', res.user.uid);
-                window.location.href = `/dashboard.html?userId=${res.user.uid}`;
+                const uid = res.user.uid;
+                const email = res.user.email;
+                localStorage.setItem('nexonUserId', uid);
+                
+                // Synchronize Google user email immediately to the backend profile endpoint
+                if (email) {
+                    await syncUserProfile(uid, email);
+                }
+
+                window.location.href = `/dashboard.html?userId=${uid}`;
             } catch (err) { errorEl.textContent = '❌ ' + err.message; }
         };
     </script>

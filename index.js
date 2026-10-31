@@ -455,70 +455,115 @@ async function startUserBot(userId) {
         }
     }, 1000);
 
-    // Messages Upsert Handler
+    // Messages Upsert Handler (Permanent LID & remoteJidAlt Fix)
     session.sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
             try {
-                if (!msg.message || msg.key.fromMe) continue;
+                if (!msg.message) continue;
                 if (msg.message.protocolMessage) continue;
 
-                let rawSender = msg.key.remoteJidAlt && msg.key.remoteJidAlt.includes('@s.whatsapp.net') 
-                    ? msg.key.remoteJidAlt 
-                    : msg.key.remoteJid;
+                const isFromMe = msg.key.fromMe;
+                
+                // 🛠️ PERMANENT FIX: Extract exact phone number from remoteJidAlt (@s.whatsapp.net) when available
+                let rawJid = msg.key.remoteJid || '';
+                
+                if (msg.key.remoteJidAlt && msg.key.remoteJidAlt.includes('@s.whatsapp.net')) {
+                    rawJid = msg.key.remoteJidAlt;
+                } else if (rawJid.includes('@g.us') && msg.key.participant) {
+                    rawJid = msg.key.participant;
+                }
 
-                const senderLast10 = getLast10Digits(rawSender);
+                // Clean and extract exact phone number digits
+                let cleanDigits = rawJid.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+                
+                let targetJid = rawJid;
+                if (cleanDigits.length >= 10) {
+                    const actualPhone = cleanDigits.length > 12 ? cleanDigits.slice(-12) : cleanDigits;
+                    targetJid = `${actualPhone}@s.whatsapp.net`;
+                }
+
+                // Cross verify with saved VCF contacts map
+                const contactLast10 = getLast10Digits(targetJid);
+                for (let [dbId] of session.contactsMap.entries()) {
+                    if (getLast10Digits(dbId) === contactLast10) {
+                        targetJid = dbId;
+                        break;
+                    }
+                }
+
+                const finalLast10 = getLast10Digits(targetJid);
                 const messageText = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || '';
 
                 let mediaData = null;
                 try { mediaData = await downloadMediaMessageBuffer(msg); } catch (e) { mediaData = null; }
 
-                logUserHistory(userId, 'incoming', rawSender, messageText || (mediaData ? `[Media: ${mediaData.filename}]` : '[Media Message]'), { senderLast10 });
+                const logType = isFromMe ? 'outgoing' : 'incoming';
+                logUserHistory(userId, logType, targetJid, messageText || (mediaData ? `[Media: ${mediaData.filename}]` : '[Media Message]'), { contactLast10: finalLast10 });
 
-                let senderInfo = `+${rawSender.split('@')[0]}`;
+                let contactName = `+${finalLast10}`;
                 for (let [dbId, contact] of session.contactsMap.entries()) {
-                    if (getLast10Digits(dbId) === senderLast10) { senderInfo = `${contact.name} (+${senderLast10})`; break; }
+                    if (getLast10Digits(dbId) === finalLast10) { 
+                        contactName = `${contact.name} (+${finalLast10})`; 
+                        break; 
+                    }
                 }
+
+                // Clean Telegram Formatting with proper + country code prefix
+                const formattedNumber = targetJid.includes('@s.whatsapp.net') ? `+${targetJid.split('@')[0]}` : `+${finalLast10}`;
+                const directionTag = isFromMe 
+                    ? `📤 <b>OUTGOING (To: ${contactName} | <code>${formattedNumber}</code>):</b>` 
+                    : `📥 <b>INCOMING (From: ${contactName} | <code>${formattedNumber}</code>):</b>`;
 
                 if (mediaData) {
                     if (mediaData.isTooLarge) {
-                        const skipMsg = `🛡️ [Anti-Revoke Logger]\n From: ${senderInfo}\n [Media Skipped]\nA media file was received but cannot be shown because its size (${mediaData.fileSizeMB} MB) exceeds Telegram's 50MB limit.`;
+                        const skipMsg = `🛡️ [Nexon Automation]\n${directionTag}\n[Media Skipped - Size > 50MB]`;
                         pushToTgQueue(userId, { type: 'text', text: skipMsg });
                     } else {
-                        pushToTgQueue(userId, { type: 'media', mediaType: mediaData.mediaType, buffer: mediaData.buffer, filename: mediaData.filename, caption: `🛡️ [Anti-Revoke Logger]\n From: ${senderInfo}\n${mediaData.caption}` });
+                        pushToTgQueue(userId, { 
+                            type: 'media', 
+                            mediaType: mediaData.mediaType, 
+                            buffer: mediaData.buffer, 
+                            filename: mediaData.filename, 
+                            caption: `🛡️ [Nexon Automation]\n${directionTag}\n${mediaData.caption || ''}` 
+                        });
                     }
                 } else if (messageText) {
-                    pushToTgQueue(userId, { type: 'text', text: `🛡️ [Anti-Revoke Logger]\n From: ${senderInfo}\n💬 Message: ${messageText}` });
+                    pushToTgQueue(userId, { type: 'text', text: `🛡️ [Nexon Automation]\n${directionTag}\n💬 ${messageText}` });
                 }
+
+                // If message is sent by you, do not trigger auto-reply loop
+                if (isFromMe) continue;
 
                 if (!messageText && !mediaData) continue;
                 if (!session.isEnabled) continue;
 
                 let isSavedInVcfDb = false;
                 for (let [dbId, contact] of session.contactsMap.entries()) {
-                    if (getLast10Digits(contact.id || dbId) === senderLast10) { isSavedInVcfDb = true; break; }
+                    if (getLast10Digits(contact.id || dbId) === finalLast10) { isSavedInVcfDb = true; break; }
                 }
 
                 if (isSavedInVcfDb) {
                     let matchedBatch = null;
                     for (let batch of session.batchesConfig) {
-                        if (batch.contacts && batch.contacts.some(cId => getLast10Digits(cId) === senderLast10)) { matchedBatch = batch; break; }
+                        if (batch.contacts && batch.contacts.some(cId => getLast10Digits(cId) === finalLast10)) { matchedBatch = batch; break; }
                     }
                     if (matchedBatch) {
-                        const lastTime = session.cooldownMap.get(senderLast10) || 0;
+                        const lastTime = session.cooldownMap.get(finalLast10) || 0;
                         if (Date.now() - lastTime >= 15 * 60 * 1000) {
-                            session.cooldownMap.set(senderLast10, Date.now());
-                            await session.sock.sendMessage(msg.key.remoteJid, { text: matchedBatch.message });
-                            logUserHistory(userId, 'batch', msg.key.remoteJid, matchedBatch.message);
+                            session.cooldownMap.set(finalLast10, Date.now());
+                            await session.sock.sendMessage(targetJid, { text: matchedBatch.message });
+                            logUserHistory(userId, 'batch', targetJid, matchedBatch.message);
                         }
                     }
                     continue;
                 }
 
-                const lastTime = session.cooldownMap.get(senderLast10) || 0;
+                const lastTime = session.cooldownMap.get(finalLast10) || 0;
                 if (Date.now() - lastTime < 15 * 60 * 1000) continue;
-                session.cooldownMap.set(senderLast10, Date.now());
-                await session.sock.sendMessage(msg.key.remoteJid, { text: session.fallbackMessage });
-                logUserHistory(userId, 'fallback', msg.key.remoteJid, session.fallbackMessage);
+                session.cooldownMap.set(finalLast10, Date.now());
+                await session.sock.sendMessage(targetJid, { text: session.fallbackMessage });
+                logUserHistory(userId, 'fallback', targetJid, session.fallbackMessage);
+
             } catch (innerErr) {
                 console.error('[MESSAGE UPSERT ERROR CAUGHT]:', innerErr.message);
             }
