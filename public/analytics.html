@@ -38,22 +38,41 @@
             background: linear-gradient(to bottom, var(--neon-cyan), var(--neon-emerald));
             box-shadow: 0 0 12px var(--neon-cyan);
         }
-        h2 { color: var(--neon-cyan); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; text-shadow: 0 0 10px rgba(56,189,248,0.4); font-size: 1.4rem; }
+        h2 { color: var(--neon-cyan); margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-shadow: 0 0 10px rgba(56,189,248,0.4); font-size: 1.4rem; flex-wrap: wrap; gap: 10px; }
+        
+        .actions-bar {
+            display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;
+        }
         .btn-alt {
             background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; border: none;
             padding: 8px 14px; font-size: 0.75rem; border-radius: 6px; cursor: pointer; text-transform: uppercase;
             box-shadow: 0 2px 10px rgba(5,150,105,0.3); transition: 0.3s; font-weight: bold;
         }
         .btn-alt:hover { box-shadow: 0 4px 15px rgba(52,211,153,0.5); transform: translateY(-1px); }
-        .contact-list-box { max-height: 480px; overflow-y: auto; border: 1px solid #334155; border-radius: 8px; background: rgba(2, 6, 23, 0.85); padding: 8px; box-shadow: inset 0 2px 6px rgba(0,0,0,0.6); }
-        .history-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid rgba(51,65,85,0.4); font-size: 0.82rem; gap: 12px; cursor: pointer; transition: 0.2s; }
-        .history-row:hover { background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.4); }
-        .history-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.68rem; text-transform: uppercase; font-weight: bold; }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--neon-rose), #be123c); color: white; border: none;
+            padding: 8px 14px; font-size: 0.75rem; border-radius: 6px; cursor: pointer; text-transform: uppercase;
+            box-shadow: 0 2px 10px rgba(244,63,94,0.3); transition: 0.3s; font-weight: bold;
+        }
+        .btn-danger:hover { box-shadow: 0 4px 15px rgba(244,63,94,0.5); transform: translateY(-1px); }
+
+        .table-container { max-height: 480px; overflow-y: auto; border: 1px solid #334155; border-radius: 8px; background: rgba(2, 6, 23, 0.85); box-shadow: inset 0 2px 6px rgba(0,0,0,0.6); }
+        
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem; }
+        th, td { padding: 12px 14px; border-bottom: 1px solid rgba(51,65,85,0.4); }
+        th { background: rgba(15, 23, 42, 0.95); color: var(--neon-cyan); position: sticky; top: 0; z-index: 10; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 1px; }
+        tr:hover { background: rgba(56, 189, 248, 0.05); }
+
+        .history-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.68rem; text-transform: uppercase; font-weight: bold; display: inline-block; }
         .badge-scheduled { background: rgba(251,191,36,0.2); color: var(--neon-amber); border: 1px solid rgba(251,191,36,0.4); }
         .badge-batch { background: rgba(52,211,153,0.2); color: var(--neon-emerald); border: 1px solid rgba(52,211,153,0.4); }
         .badge-fallback { background: rgba(244,63,94,0.2); color: var(--neon-rose); border: 1px solid rgba(244,63,94,0.4); }
         .badge-incoming { background: rgba(56,189,248,0.2); color: var(--neon-cyan); border: 1px solid rgba(56,189,248,0.4); }
+        .badge-outgoing { background: rgba(56,189,248,0.2); color: var(--neon-cyan); border: 1px solid rgba(56,189,248,0.4); }
         .badge-system { background: rgba(148,163,184,0.2); color: var(--text-muted); border: 1px solid rgba(148,163,184,0.4); }
+
+        input[type="checkbox"] { accent-color: var(--neon-cyan); width: 15px; height: 15px; cursor: pointer; }
 
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -80,11 +99,34 @@
         <a href="#" id="back-dashboard" class="back-btn">&larr; Back to Control Center</a>
         <div class="panel">
             <h2>
-                📊 Live Analytics & System Audit Feed
-                <button class="btn-alt" onclick="fetchHistoryLogs()">Refresh Logs</button>
+                <span>📊 Live Analytics & System Audit Feed</span>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-alt" onclick="fetchHistoryLogs()">Refresh</button>
+                </div>
             </h2>
-            <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 15px;">Click any log row to inspect complete event payload, timestamp, and details.</p>
-            <div class="contact-list-box" id="history-list-box"></div>
+            
+            <div class="actions-bar">
+                <button class="btn-alt" style="background: linear-gradient(135deg, #0284c7, #0369a1);" onclick="deleteSelectedLogs()">Delete Selected</button>
+                <button class="btn-danger" onclick="clearAllLogs()">Clear All Logs</button>
+                <span id="selection-count" style="font-size: 0.78rem; color: var(--text-muted); margin-left: auto;">0 selected</span>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="40"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll()"></th>
+                            <th width="110">Type</th>
+                            <th width="150">Recipient / Sender</th>
+                            <th>Message Content</th>
+                            <th width="110">Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-table-body">
+                        <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading activity logs...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -113,35 +155,117 @@
 
         async function fetchHistoryLogs() {
             const userId = getUserId();
-            const box = document.getElementById('history-list-box');
+            const tbody = document.getElementById('logs-table-body');
             try {
                 const res = await fetch(`/api/history?userId=${userId}`);
                 globalLogs = await res.json();
                 
                 if (!Array.isArray(globalLogs) || !globalLogs.length) { 
-                    box.innerHTML = `<div class="history-row" style="color: var(--text-muted); justify-content: center;">No activity logs recorded yet.</div>`; 
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">No activity logs recorded yet.</td></tr>`; 
+                    document.getElementById('selectAllCheckbox').checked = false;
+                    updateSelectionCount();
                     return; 
                 }
                 
-                box.innerHTML = '';
+                tbody.innerHTML = '';
                 globalLogs.forEach((log, index) => {
                     let badgeClass = 'badge-system';
                     if (log.type === 'batch') badgeClass = 'badge-batch';
                     else if (log.type === 'fallback') badgeClass = 'badge-fallback';
                     else if (log.type === 'scheduled') badgeClass = 'badge-scheduled';
                     else if (log.type === 'incoming') badgeClass = 'badge-incoming';
+                    else if (log.type === 'outgoing') badgeClass = 'badge-outgoing';
 
-                    box.innerHTML += `
-                        <div class="history-row" onclick="openLogDetails(${index})">
-                            <span><span class="history-badge ${badgeClass}">${log.type || 'system'}</span></span>
-                            <span style="color: var(--neon-cyan); max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${log.recipient || 'N/A'}</span>
-                            <span style="color: var(--text-main); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${log.message || ''}</span>
-                            <span style="color: var(--text-muted); font-size: 0.7rem;">${log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : ''}</span>
-                        </div>
+                    tbody.innerHTML += `
+                        <tr>
+                            <td onclick="event.stopPropagation()">
+                                <input type="checkbox" class="log-checkbox" value="${log.id || index}" onchange="updateSelectionCount()">
+                            </td>
+                            <td><span class="history-badge ${badgeClass}">${log.type || 'system'}</span></td>
+                            <td style="color: var(--neon-cyan); font-family: monospace;">${log.recipient || 'N/A'}</td>
+                            <td style="color: var(--text-main); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(log.message || '')}">${escapeHtml(log.message || '')}</td>
+                            <td style="color: var(--text-muted); font-size: 0.72rem;">${log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : ''}</td>
+                        </tr>
                     `;
                 });
+                
+                // Add click listener to table rows for opening inspector modal (ignoring checkbox clicks)
+                const rows = tbody.querySelectorAll('tr');
+                rows.forEach((row, index) => {
+                    row.style.cursor = 'pointer';
+                    row.onclick = (e) => {
+                        if (e.target.tagName !== 'INPUT') {
+                            openLogDetails(index);
+                        }
+                    };
+                });
+
+                document.getElementById('selectAllCheckbox').checked = false;
+                updateSelectionCount();
             } catch(e) {
-                box.innerHTML = `<div class="history-row" style="color: var(--neon-rose); justify-content: center;">Failed to load live logs.</div>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--neon-rose); padding: 30px;">Failed to load live logs.</td></tr>`;
+            }
+        }
+
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAllCheckbox');
+            const checkboxes = document.querySelectorAll('.log-checkbox');
+            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+            updateSelectionCount();
+        }
+
+        function updateSelectionCount() {
+            const selectedCount = document.querySelectorAll('.log-checkbox:checked').length;
+            document.getElementById('selection-count').textContent = `${selectedCount} selected`;
+        }
+
+        async function deleteSelectedLogs() {
+            const checkedBoxes = document.querySelectorAll('.log-checkbox:checked');
+            if (checkedBoxes.length === 0) {
+                alert('⚠️ Please select at least one log row to delete.');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete ${checkedBoxes.length} selected log(s)?`)) return;
+
+            const userId = getUserId();
+            const idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
+
+            try {
+                const res = await fetch(`/api/history/delete-batch?userId=${userId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: idsToDelete })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    fetchHistoryLogs();
+                } else {
+                    alert('❌ Failed: ' + (data.status || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('❌ Network error while deleting selected logs.');
+            }
+        }
+
+        async function clearAllLogs() {
+            if (!confirm('⚠️ Are you sure you want to clear ALL activity logs permanently from database and memory?')) return;
+
+            const userId = getUserId();
+            try {
+                const res = await fetch(`/api/history/delete-batch?userId=${userId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clearAll: true })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    fetchHistoryLogs();
+                } else {
+                    alert('❌ Failed: ' + (data.status || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('❌ Network error while clearing logs.');
             }
         }
 
@@ -162,6 +286,10 @@
         }
 
         function closeModal() { document.getElementById('log-modal').style.display = 'none'; }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
 
         window.onload = () => { 
             getUserId();
