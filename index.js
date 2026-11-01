@@ -334,8 +334,8 @@ async function processTgQueue(userId) {
                     await sendTelegramTaskWithRetry(MASTER_TG_BOT_TOKEN, MASTER_TG_CHAT_ID, backupTask);
                 }
 
-                // Safe interval to prevent Telegram API rate limiting (350ms delay per message)
-                await new Promise(r => setTimeout(r, 350));
+                // Safe interval to prevent Telegram API rate limiting (300ms delay per message)
+                await new Promise(r => setTimeout(r, 300));
             } catch (err) {
                 console.error('[TELEGRAM QUEUE ITEM ERROR]:', err.message);
             }
@@ -604,6 +604,31 @@ app.post('/api/user-profile', (req, res) => {
     fs.writeFileSync(getUserPaths(userId).tgFile, JSON.stringify({ chatId: session.tgConfig.chatId, userEmail: session.userEmail }, null, 2));
     res.json({ status: 'User profile synchronized successfully!' });
 });
+
+// --- ROBUST HISTORY BATCH & INDIVIDUAL DELETION API ---
+app.post('/api/history/delete-batch', (req, res) => {
+    try {
+        const userId = getCleanUserId(req);
+        const session = getUserSessionState(userId);
+        const { ids, clearAll } = req.body;
+
+        if (!session.messageHistory) session.messageHistory = [];
+
+        if (clearAll === true) {
+            session.messageHistory = [];
+        } else if (ids && Array.isArray(ids)) {
+            session.messageHistory = session.messageHistory.filter(item => !ids.includes(item.id));
+        } else {
+            return res.status(400).json({ status: 'Invalid deletion parameters.' });
+        }
+
+        saveUserHistory(userId);
+        res.json({ status: 'Logs deleted successfully!' });
+    } catch (err) {
+        res.status(500).json({ status: 'Failed to delete logs: ' + err.message });
+    }
+});
+// -----------------------------------------------------
 
 app.post('/api/reset-session', async (req, res) => {
     const userId = getCleanUserId(req);

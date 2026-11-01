@@ -154,6 +154,9 @@
         }
 
         async function fetchHistoryLogs() {
+            // Prevent auto-refresh from wiping user's active selections if they are currently checking boxes
+            const activeSelectedIds = Array.from(document.querySelectorAll('.log-checkbox:checked')).map(cb => cb.value);
+
             const userId = getUserId();
             const tbody = document.getElementById('logs-table-body');
             try {
@@ -176,10 +179,13 @@
                     else if (log.type === 'incoming') badgeClass = 'badge-incoming';
                     else if (log.type === 'outgoing') badgeClass = 'badge-outgoing';
 
+                    const logId = log.id || index;
+                    const isChecked = activeSelectedIds.includes(logId.toString()) ? 'checked' : '';
+
                     tbody.innerHTML += `
                         <tr>
                             <td onclick="event.stopPropagation()">
-                                <input type="checkbox" class="log-checkbox" value="${log.id || index}" onchange="updateSelectionCount()">
+                                <input type="checkbox" class="log-checkbox" value="${logId}" ${isChecked} onchange="updateSelectionCount()">
                             </td>
                             <td><span class="history-badge ${badgeClass}">${log.type || 'system'}</span></td>
                             <td style="color: var(--neon-cyan); font-family: monospace;">${log.recipient || 'N/A'}</td>
@@ -189,7 +195,6 @@
                     `;
                 });
                 
-                // Add click listener to table rows for opening inspector modal (ignoring checkbox clicks)
                 const rows = tbody.querySelectorAll('tr');
                 rows.forEach((row, index) => {
                     row.style.cursor = 'pointer';
@@ -200,7 +205,6 @@
                     };
                 });
 
-                document.getElementById('selectAllCheckbox').checked = false;
                 updateSelectionCount();
             } catch(e) {
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--neon-rose); padding: 30px;">Failed to load live logs.</td></tr>`;
@@ -215,8 +219,17 @@
         }
 
         function updateSelectionCount() {
-            const selectedCount = document.querySelectorAll('.log-checkbox:checked').length;
-            document.getElementById('selection-count').textContent = `${selectedCount} selected`;
+            const checkboxes = document.querySelectorAll('.log-checkbox');
+            const checkedBoxes = document.querySelectorAll('.log-checkbox:checked');
+            const selectAll = document.getElementById('selectAllCheckbox');
+            
+            if (checkboxes.length > 0 && checkedBoxes.length === checkboxes.length) {
+                selectAll.checked = true;
+            } else {
+                selectAll.checked = false;
+            }
+
+            document.getElementById('selection-count').textContent = `${checkedBoxes.length} selected`;
         }
 
         async function deleteSelectedLogs() {
@@ -294,7 +307,7 @@
         window.onload = () => { 
             getUserId();
             fetchHistoryLogs(); 
-            setInterval(fetchHistoryLogs, 5000); 
+            setInterval(fetchHistoryLogs, 10000); // Polling interval set to 10s with selection preservation
         };
     </script>
 </body>
