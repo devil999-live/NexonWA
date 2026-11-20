@@ -3,123 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VCF Ingestion - Nexon</title>
+    <title>NEXON // VCF Contact Ingestion</title>
     <style>
         :root {
-            --bg-base: #090d16;
-            --metallic-panel: linear-gradient(135deg, rgba(20, 27, 45, 0.95) 0%, rgba(10, 14, 26, 0.98) 100%);
-            --neon-cyan: #38bdf8;
-            --neon-emerald: #34d399;
-            --neon-amber: #fbbf24;
-            --neon-rose: #f43f5e;
-            --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
+            --bg-obsidian: #06080e;
+            --bg-card: rgba(15, 21, 36, 0.9);
+            --bg-card-hover: rgba(21, 30, 52, 0.96);
+            --border-subtle: rgba(148, 163, 184, 0.14);
+            --border-indigo: rgba(99, 102, 241, 0.48);
+            --accent-indigo: #6366f1;
+            --accent-indigo-bright: #818cf8;
+            --accent-emerald: #10b981;
+            --accent-emerald-bright: #34d399;
+            --accent-gold: #f59e0b;
+            --accent-gold-bright: #fbbf24;
+            --accent-crimson: #ef4444;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --shadow-deck: 0 24px 60px rgba(0, 0, 0, 0.78);
+            --shadow-indigo: 0 0 28px rgba(99, 102, 241, 0.25);
+            --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace, sans-serif; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            background-color: var(--bg-base);
-            background-image: 
-                radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.25) 0%, transparent 60%),
-                linear-gradient(rgba(15, 23, 42, 0.3) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(15, 23, 42, 0.3) 1px, transparent 1px);
-            background-size: 100% 100%, 30px 30px, 30px 30px;
-            color: var(--text-main); min-height: 100vh; padding: 40px;
+            background-color: var(--bg-obsidian);
+            background-image:
+                radial-gradient(circle at 15% 10%, rgba(99, 102, 241, 0.18), transparent 42%),
+                radial-gradient(circle at 85% 20%, rgba(16, 185, 129, 0.12), transparent 42%),
+                linear-gradient(180deg, #06080e 0%, #090d18 60%, #06080e 100%);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            padding: 32px 24px 60px;
+            overflow-x: hidden;
         }
-        .wrapper { max-width: 800px; margin: 0 auto; }
-        .back-btn { display: inline-block; color: var(--neon-cyan); text-decoration: none; margin-bottom: 20px; font-size: 0.9rem; text-shadow: 0 0 8px rgba(56,189,248,0.4); }
+
+        @keyframes deckSlideUp {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes modalSpring {
+            from { opacity: 0; transform: scale(0.93) translateY(12px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .wrapper { max-width: 860px; margin: 0 auto; animation: deckSlideUp 0.6s var(--ease-smooth) both; }
+
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            color: var(--accent-indigo-bright); text-decoration: none;
+            font-size: 0.86rem; font-weight: 600; margin-bottom: 18px;
+            padding: 8px 14px; border-radius: 10px;
+            background: rgba(15, 21, 36, 0.75); border: 1px solid var(--border-subtle);
+            transition: all 0.25s var(--ease-smooth);
+        }
+        .back-btn:hover {
+            color: #fff; border-color: var(--border-indigo);
+            transform: translateX(-3px); box-shadow: var(--shadow-indigo);
+        }
+
         .panel {
-            background: var(--metallic-panel);
-            border: 1px solid rgba(56, 189, 248, 0.4);
-            border-radius: 14px; padding: 35px;
-            box-shadow: 0 15px 45px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-            position: relative; overflow: hidden;
+            background: var(--bg-card); border: 1px solid var(--border-subtle);
+            border-radius: 20px; padding: 34px;
+            box-shadow: var(--shadow-deck), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px); position: relative; overflow: hidden;
         }
         .panel::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 6px; height: 100%;
-            background: linear-gradient(to bottom, var(--neon-cyan), var(--neon-emerald));
-            box-shadow: 0 0 15px var(--neon-cyan);
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--accent-indigo), var(--accent-emerald));
         }
-        h2 { color: var(--neon-cyan); margin-bottom: 20px; text-shadow: 0 0 12px rgba(56,189,248,0.6); }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1.5px; }
-        
-        /* GLOWING METALLIC FILE UPLOAD BOX */
+
+        .eyebrow {
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em;
+            text-transform: uppercase; color: var(--accent-indigo-bright); margin-bottom: 6px;
+        }
+        h2 { font-size: 1.65rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 22px; }
+
+        .form-group { margin-bottom: 22px; }
+        label {
+            display: block; font-size: 0.78rem; font-weight: 700;
+            letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--text-secondary); margin-bottom: 10px;
+        }
+
         .file-upload-box {
-            border: 2px dashed var(--neon-cyan);
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 0.95) 100%);
-            padding: 22px; border-radius: 10px; text-align: center; cursor: pointer;
-            box-shadow: 0 0 15px rgba(56, 189, 248, 0.2), inset 0 0 10px rgba(56, 189, 248, 0.1);
-            transition: all 0.3s ease;
+            border: 2px dashed rgba(99, 102, 241, 0.45);
+            background: linear-gradient(145deg, rgba(12, 17, 30, 0.92), rgba(7, 10, 18, 0.96));
+            padding: 26px 20px; border-radius: 16px; text-align: center; cursor: pointer;
+            transition: all 0.3s var(--ease-smooth);
         }
         .file-upload-box:hover {
-            border-color: var(--neon-emerald);
-            box-shadow: 0 0 25px rgba(52, 211, 153, 0.4), inset 0 0 15px rgba(52, 211, 153, 0.2);
+            border-color: var(--accent-emerald-bright);
+            background: rgba(16, 185, 129, 0.06);
             transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(16, 185, 129, 0.16);
         }
 
         input[type="text"] {
-            width: 100%; background: rgba(2, 6, 23, 0.95); border: 1px solid #334155;
-            padding: 12px; color: var(--text-main); border-radius: 8px; font-size: 0.9rem; outline: none;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+            width: 100%; background: rgba(6, 8, 14, 0.92);
+            border: 1px solid var(--border-subtle); padding: 12px 15px;
+            color: var(--text-primary); border-radius: 11px; font-size: 0.9rem; outline: none;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
         }
-        input:focus { border-color: var(--neon-cyan); box-shadow: 0 0 15px rgba(56,189,248,0.5); }
-        
-        /* DYNAMIC GLOWING BUTTONS */
-        .btn {
-            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white; border: none;
-            padding: 12px 20px; font-weight: bold; border-radius: 8px; cursor: pointer; text-transform: uppercase;
-            letter-spacing: 1.2px; box-shadow: 0 0 15px rgba(2, 132, 199, 0.4); transition: all 0.3s ease;
+        input[type="text"]:focus {
+            border-color: var(--accent-indigo-bright);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
         }
-        .btn:hover { box-shadow: 0 0 25px rgba(56, 189, 248, 0.8); transform: translateY(-2px); }
-        .btn-alt { background: linear-gradient(135deg, #059669 0%, #047857 100%); box-shadow: 0 0 15px rgba(5, 150, 105, 0.4); }
-        .btn-alt:hover { box-shadow: 0 0 25px rgba(52, 211, 153, 0.8); }
-        .btn-warning { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); box-shadow: 0 0 15px rgba(217, 119, 6, 0.4); }
-        .btn-warning:hover { box-shadow: 0 0 25px rgba(251, 191, 36, 0.8); }
 
-        .contact-list-box { max-height: 350px; overflow-y: auto; border: 1px solid #334155; border-radius: 8px; background: rgba(2, 6, 23, 0.85); padding: 8px; margin-top: 15px; box-shadow: inset 0 2px 6px rgba(0,0,0,0.6); }
-        .db-contact-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid rgba(51,65,85,0.4); font-size: 0.85rem; gap: 12px; }
-        .db-contact-row:hover { background: rgba(56,189,248,0.08); }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 6, 23, 0.88); backdrop-filter: blur(10px); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background: #0f172a; border: 1px solid var(--neon-cyan); width: 90%; max-width: 650px; border-radius: 12px; padding: 28px; box-shadow: 0 0 40px rgba(56,189,248,0.35); max-height: 85vh; display: flex; flex-direction: column; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid #334155; padding-bottom: 12px; }
-        .modal-header h3 { color: var(--neon-cyan); }
-        .close-btn { background: none; border: none; color: var(--neon-rose); font-size: 1.3rem; cursor: pointer; font-weight: bold; }
+        .btn {
+            background: linear-gradient(135deg, var(--accent-indigo), #4f46e5);
+            color: #fff; border: 1px solid rgba(129, 140, 248, 0.45);
+            padding: 12px 20px; font-weight: 700; border-radius: 12px; cursor: pointer;
+            letter-spacing: 0.04em; font-size: 0.85rem;
+            box-shadow: 0 8px 22px rgba(99, 102, 241, 0.28);
+            transition: all 0.28s var(--ease-smooth);
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(99, 102, 241, 0.42); }
+        .btn:active { transform: translateY(0) scale(0.98); }
+
+        .btn-alt {
+            background: linear-gradient(135deg, var(--accent-emerald), #059669);
+            color: #05110d; border-color: rgba(52, 211, 153, 0.55);
+            box-shadow: 0 8px 22px rgba(16, 185, 129, 0.26);
+        }
+        .btn-alt:hover { box-shadow: 0 12px 28px rgba(16, 185, 129, 0.42); }
+
+        .btn-warning {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(217, 119, 6, 0.16));
+            color: var(--accent-gold-bright); border-color: rgba(245, 158, 11, 0.5);
+            box-shadow: 0 8px 22px rgba(245, 158, 11, 0.18);
+        }
+        .btn-warning:hover { background: linear-gradient(135deg, rgba(245, 158, 11, 0.34), rgba(217, 119, 6, 0.24)); }
+
+        .contact-list-box {
+            max-height: 360px; overflow-y: auto; border: 1px solid var(--border-subtle);
+            border-radius: 14px; background: rgba(6, 8, 14, 0.88); padding: 8px; margin-top: 14px;
+        }
+        .db-contact-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+            font-size: 0.85rem; gap: 12px; transition: background 0.2s ease;
+        }
+        .db-contact-row:hover { background: rgba(99, 102, 241, 0.08); }
+
+        .modal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(3, 5, 10, 0.82); backdrop-filter: blur(8px);
+            z-index: 1000; justify-content: center; align-items: center; padding: 20px;
+        }
+        .modal-content {
+            background: linear-gradient(150deg, rgba(17, 24, 43, 0.98), rgba(8, 12, 22, 0.99));
+            border: 1px solid var(--border-indigo); width: 100%; max-width: 660px;
+            border-radius: 20px; padding: 28px;
+            box-shadow: var(--shadow-deck), var(--shadow-indigo);
+            max-height: 85vh; display: flex; flex-direction: column;
+            animation: modalSpring 0.35s var(--ease-spring) both;
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;
+        }
+        .modal-header h3 { color: var(--accent-indigo-bright); font-size: 1.15rem; }
+        .close-btn {
+            background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35);
+            color: #fca5a5; width: 32px; height: 32px; border-radius: 8px;
+            font-size: 1rem; cursor: pointer; font-weight: 700;
+        }
     </style>
 </head>
 <body>
     <div class="wrapper">
-        <a href="index.html" class="back-btn">← Back to Hub</a>
+        <a href="dashboard.html" id="back-dashboard" class="back-btn">← Back to Hub</a>
         <div class="panel">
+            <div class="eyebrow">Contact Vault & Parser</div>
             <h2>.VCF Contact Ingestion & Manager</h2>
             <div class="form-group">
                 <label>Upload Phone vCard (.vcf) File:</label>
                 <div class="file-upload-box" onclick="document.getElementById('vcf-file-input').click()">
-                    <p style="font-size: 0.95rem; color: var(--neon-cyan); font-weight: bold;" id="file-label-text">📂 Click to browse computer for .vcf file</p>
+                    <p style="font-size: 0.95rem; color: var(--accent-indigo-bright); font-weight: 700;" id="file-label-text">📂 Click to browse computer for .vcf file</p>
                     <input type="file" id="vcf-file-input" accept=".vcf" style="display: none;">
                 </div>
             </div>
-            <div style="display: flex; gap: 12px; margin-bottom: 15px; flex-wrap: wrap;">
-                <button class="btn btn-alt" onclick="uploadVcfFile()">🚀 Upload & Parse .VCF</button>
-                <button class="btn btn-warning" onclick="openContactsModal()">👁️ View Database Contacts (<span id="count-badge">0</span>)</button>
+            <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-alt" onclick="uploadVcfFile()">🚀 Upload & Parse .VCF</button>
+                <button type="button" class="btn btn-warning" onclick="openContactsModal()">👁️ View Database Contacts (<span id="count-badge">0</span>)</button>
             </div>
-            <p id="vcf-upload-status" style="font-size: 0.85rem; color: var(--neon-emerald); font-weight: bold;"></p>
+            <p id="vcf-upload-status" style="font-size: 0.86rem; color: var(--accent-emerald-bright); font-weight: 600;"></p>
         </div>
     </div>
 
-    <div id="contactsModal" class="modal">
-        <div class="modal-content">
+    <div id="contactsModal" class="modal" onclick="closeContactsModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <h3>📂 Database Contacts Manager</h3>
-                <button class="close-btn" onclick="closeContactsModal()">✕</button>
+                <button type="button" class="close-btn" onclick="closeContactsModal()">✕</button>
             </div>
-            <input type="text" id="db-contact-search" placeholder="Search saved contacts..." onkeyup="filterModalContacts()" style="margin-bottom: 12px;">
+            <input type="text" id="db-contact-search" placeholder="Search saved contacts..." onkeyup="filterModalContacts()" style="margin-bottom: 10px;">
             <div class="contact-list-box" id="modal-contacts-list"></div>
         </div>
     </div>
 
     <script>
         let cachedContacts = [];
-        
+
+        function getUserId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const userId = urlParams.get('userId') || localStorage.getItem('nexonUserId');
+            if (userId) {
+                document.getElementById('back-dashboard').setAttribute('href', `/dashboard.html?userId=${encodeURIComponent(userId)}`);
+            } else {
+                document.getElementById('back-dashboard').setAttribute('href', `/dashboard.html`);
+            }
+            return userId || 'default_user';
+        }
+
         document.getElementById('vcf-file-input').addEventListener('change', function() {
             if (this.files.length > 0) {
                 document.getElementById('file-label-text').textContent = '✨ Selected File: ' + this.files[0].name;
@@ -127,11 +228,12 @@
         });
 
         async function loadContacts() {
+            const userId = getUserId();
             try {
-                const res = await fetch('/api/contacts');
+                const res = await fetch(`/api/contacts?userId=${encodeURIComponent(userId)}`);
                 cachedContacts = await res.json();
                 document.getElementById('count-badge').textContent = cachedContacts.length;
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         }
 
         function openContactsModal() {
@@ -146,20 +248,21 @@
 
         function renderModalContacts(contacts) {
             const listContainer = document.getElementById('modal-contacts-list');
-            if (contacts.length === 0) {
-                listContainer.innerHTML = `<div class="db-contact-row" style="color: var(--text-muted); justify-content: center;">No contacts found in database.</div>`;
+            if (!contacts || contacts.length === 0) {
+                listContainer.innerHTML = `<div class="db-contact-row" style="color: var(--text-secondary); justify-content: center;">No contacts found in database.</div>`;
                 return;
             }
             listContainer.innerHTML = '';
             contacts.forEach(c => {
                 const row = document.createElement('div');
                 row.className = 'db-contact-row';
+                const encodedKey = btoa(unescape(encodeURIComponent(c.id)));
                 row.innerHTML = `
-                    <input type="text" value="${c.name}" id="name_${btoa(c.id)}" style="width: 45%; padding: 6px; font-size: 0.8rem; margin: 0;">
-                    <span style="color: var(--neon-cyan); font-size: 0.75rem;">${c.id}</span>
-                    <div style="display: flex; gap: 5px;">
-                        <button class="btn btn-alt" style="padding: 4px 8px; font-size: 0.7rem;" onclick="updateContactName('${c.id}')">Update</button>
-                        <button class="btn" style="background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); padding: 4px 8px; font-size: 0.7rem;" onclick="deleteDatabaseContact('${c.id}')">Delete</button>
+                    <input type="text" value="${c.name}" id="name_${encodedKey}" style="width: 44%; padding: 7px 10px; font-size: 0.82rem; margin: 0;">
+                    <span style="color: var(--accent-indigo-bright); font-size: 0.78rem; font-family: monospace;">${c.id}</span>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" class="btn btn-alt" style="padding: 6px 10px; font-size: 0.72rem;" onclick="updateContactName('${c.id}', '${encodedKey}')">Update</button>
+                        <button type="button" class="btn" style="background: linear-gradient(135deg, var(--accent-crimson), #be123c); border-color: transparent; padding: 6px 10px; font-size: 0.72rem;" onclick="deleteDatabaseContact('${c.id}')">Delete</button>
                     </div>
                 `;
                 listContainer.appendChild(row);
@@ -172,33 +275,44 @@
             renderModalContacts(filtered);
         }
 
-        async function updateContactName(id) {
-            const newName = document.getElementById(`name_${btoa(id)}`).value;
-            const res = await fetch('/api/contacts/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, name: newName }) });
+        async function updateContactName(id, encodedKey) {
+            const userId = getUserId();
+            const newName = document.getElementById(`name_${encodedKey}`).value;
+            const res = await fetch('/api/contacts/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, id, name: newName })
+            });
             alert((await res.json()).status);
-            loadContacts();
+            await loadContacts();
         }
 
         async function deleteDatabaseContact(id) {
+            const userId = getUserId();
             if (!confirm(`Delete ${id}?`)) return;
-            const res = await fetch(`/api/contacts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            const res = await fetch(`/api/contacts/${encodeURIComponent(id)}?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' });
             alert((await res.json()).status);
-            loadContacts();
+            await loadContacts();
             renderModalContacts(cachedContacts);
         }
 
         async function uploadVcfFile() {
+            const userId = getUserId();
             const fileInput = document.getElementById('vcf-file-input');
             if (!fileInput.files.length) return alert('Please select a .vcf file first.');
-            
+
             const reader = new FileReader();
             reader.onload = async function(e) {
                 try {
-                    const res = await fetch('/api/upload-vcf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vcfData: e.target.result }) });
+                    const res = await fetch('/api/upload-vcf', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, vcfData: e.target.result })
+                    });
                     const data = await res.json();
                     document.getElementById('vcf-upload-status').textContent = data.status;
-                    loadContacts();
-                } catch(err) { alert('Upload failed: ' + err.message); }
+                    await loadContacts();
+                } catch (err) { alert('Upload failed: ' + err.message); }
             };
             reader.readAsText(fileInput.files[0]);
         }

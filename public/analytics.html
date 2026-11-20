@@ -3,94 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analytics Feed - Nexon SaaS</title>
+    <title>NEXON // Analytics Feed</title>
     <style>
         :root {
-            --bg-base: #090d16;
-            --metallic-panel: linear-gradient(135deg, rgba(20, 27, 45, 0.95) 0%, rgba(10, 14, 26, 0.98) 100%);
-            --neon-cyan: #38bdf8;
-            --neon-emerald: #34d399;
-            --neon-amber: #fbbf24;
-            --neon-rose: #f43f5e;
-            --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
+            --bg-obsidian: #06080e;
+            --bg-card: rgba(15, 21, 36, 0.9);
+            --border-subtle: rgba(148, 163, 184, 0.14);
+            --border-indigo: rgba(99, 102, 241, 0.48);
+            --accent-indigo: #6366f1;
+            --accent-indigo-bright: #818cf8;
+            --accent-emerald: #10b981;
+            --accent-emerald-bright: #34d399;
+            --accent-gold-bright: #fbbf24;
+            --accent-crimson: #ef4444;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --shadow-deck: 0 24px 60px rgba(0, 0, 0, 0.78);
+            --shadow-indigo: 0 0 28px rgba(99, 102, 241, 0.25);
+            --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace, sans-serif; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            background-color: var(--bg-base);
-            background-image: 
-                radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.25) 0%, transparent 60%),
-                linear-gradient(rgba(15, 23, 42, 0.3) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(15, 23, 42, 0.3) 1px, transparent 1px);
-            background-size: 100% 100%, 30px 30px, 30px 30px;
-            color: var(--text-main); min-height: 100vh; padding: 40px;
+            background-color: var(--bg-obsidian);
+            background-image:
+                radial-gradient(circle at 15% 10%, rgba(99, 102, 241, 0.18), transparent 42%),
+                radial-gradient(circle at 85% 20%, rgba(16, 185, 129, 0.12), transparent 42%),
+                linear-gradient(180deg, #06080e 0%, #090d18 60%, #06080e 100%);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            padding: 32px 24px 60px;
         }
-        .wrapper { max-width: 950px; margin: 0 auto; }
-        .back-btn { display: inline-block; color: var(--neon-cyan); text-decoration: none; margin-bottom: 20px; font-size: 0.9rem; text-shadow: 0 0 8px rgba(56,189,248,0.4); }
-        .back-btn:hover { text-decoration: underline; }
+
+        @keyframes deckSlideUp {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes modalSpring {
+            from { opacity: 0; transform: scale(0.93) translateY(12px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .wrapper { max-width: 1000px; margin: 0 auto; animation: deckSlideUp 0.6s var(--ease-smooth) both; }
+
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            color: var(--accent-indigo-bright); text-decoration: none;
+            font-size: 0.86rem; font-weight: 600; margin-bottom: 18px;
+            padding: 8px 14px; border-radius: 10px;
+            background: rgba(15, 21, 36, 0.75); border: 1px solid var(--border-subtle);
+            transition: all 0.25s var(--ease-smooth);
+        }
+        .back-btn:hover {
+            color: #fff; border-color: var(--border-indigo);
+            transform: translateX(-3px); box-shadow: var(--shadow-indigo);
+        }
+
         .panel {
-            background: var(--metallic-panel); border: 1px solid rgba(56, 189, 248, 0.3);
-            border-radius: 14px; padding: 35px; box-shadow: 0 15px 45px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-            position: relative; overflow: hidden;
+            background: var(--bg-card); border: 1px solid var(--border-subtle);
+            border-radius: 20px; padding: 34px;
+            box-shadow: var(--shadow-deck), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px); position: relative; overflow: hidden;
         }
         .panel::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 6px; height: 100%;
-            background: linear-gradient(to bottom, var(--neon-cyan), var(--neon-emerald));
-            box-shadow: 0 0 12px var(--neon-cyan);
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--accent-indigo), var(--accent-emerald));
         }
-        h2 { color: var(--neon-cyan); margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-shadow: 0 0 10px rgba(56,189,248,0.4); font-size: 1.4rem; flex-wrap: wrap; gap: 10px; }
-        
-        .actions-bar {
-            display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;
+
+        .eyebrow {
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em;
+            text-transform: uppercase; color: var(--accent-indigo-bright); margin-bottom: 6px;
         }
+        h2 {
+            font-size: 1.55rem; font-weight: 800; letter-spacing: -0.02em;
+            margin-bottom: 16px; display: flex; justify-content: space-between;
+            align-items: center; flex-wrap: wrap; gap: 10px;
+        }
+
+        .actions-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+
         .btn-alt {
-            background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; border: none;
-            padding: 8px 14px; font-size: 0.75rem; border-radius: 6px; cursor: pointer; text-transform: uppercase;
-            box-shadow: 0 2px 10px rgba(5,150,105,0.3); transition: 0.3s; font-weight: bold;
+            background: linear-gradient(135deg, var(--accent-emerald), #059669);
+            color: #05110d; border: 1px solid rgba(52, 211, 153, 0.5);
+            padding: 8px 14px; font-size: 0.76rem; font-weight: 700;
+            border-radius: 10px; cursor: pointer; transition: all 0.25s var(--ease-smooth);
         }
-        .btn-alt:hover { box-shadow: 0 4px 15px rgba(52,211,153,0.5); transform: translateY(-1px); }
+        .btn-alt:hover { transform: translateY(-1px); }
 
         .btn-danger {
-            background: linear-gradient(135deg, var(--neon-rose), #be123c); color: white; border: none;
-            padding: 8px 14px; font-size: 0.75rem; border-radius: 6px; cursor: pointer; text-transform: uppercase;
-            box-shadow: 0 2px 10px rgba(244,63,94,0.3); transition: 0.3s; font-weight: bold;
+            background: linear-gradient(135deg, var(--accent-crimson), #be123c);
+            color: #fff; border: none; padding: 8px 14px; font-size: 0.76rem;
+            font-weight: 700; border-radius: 10px; cursor: pointer;
         }
-        .btn-danger:hover { box-shadow: 0 4px 15px rgba(244,63,94,0.5); transform: translateY(-1px); }
 
-        .table-container { max-height: 480px; overflow-y: auto; border: 1px solid #334155; border-radius: 8px; background: rgba(2, 6, 23, 0.85); box-shadow: inset 0 2px 6px rgba(0,0,0,0.6); }
-        
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem; }
-        th, td { padding: 12px 14px; border-bottom: 1px solid rgba(51,65,85,0.4); }
-        th { background: rgba(15, 23, 42, 0.95); color: var(--neon-cyan); position: sticky; top: 0; z-index: 10; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 1px; }
-        tr:hover { background: rgba(56, 189, 248, 0.05); }
+        .table-container {
+            max-height: 490px; overflow-y: auto; border: 1px solid var(--border-subtle);
+            border-radius: 14px; background: rgba(6, 8, 14, 0.9);
+        }
 
-        .history-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.68rem; text-transform: uppercase; font-weight: bold; display: inline-block; }
-        .badge-scheduled { background: rgba(251,191,36,0.2); color: var(--neon-amber); border: 1px solid rgba(251,191,36,0.4); }
-        .badge-batch { background: rgba(52,211,153,0.2); color: var(--neon-emerald); border: 1px solid rgba(52,211,153,0.4); }
-        .badge-fallback { background: rgba(244,63,94,0.2); color: var(--neon-rose); border: 1px solid rgba(244,63,94,0.4); }
-        .badge-incoming { background: rgba(56,189,248,0.2); color: var(--neon-cyan); border: 1px solid rgba(56,189,248,0.4); }
-        .badge-outgoing { background: rgba(56,189,248,0.2); color: var(--neon-cyan); border: 1px solid rgba(56,189,248,0.4); }
-        .badge-system { background: rgba(148,163,184,0.2); color: var(--text-muted); border: 1px solid rgba(148,163,184,0.4); }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.84rem; }
+        th, td { padding: 12px 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.09); }
+        th {
+            background: rgba(12, 17, 30, 0.96); color: var(--accent-indigo-bright);
+            position: sticky; top: 0; z-index: 10; text-transform: uppercase;
+            font-size: 0.72rem; letter-spacing: 0.08em;
+        }
+        tr:hover { background: rgba(99, 102, 241, 0.06); }
 
-        input[type="checkbox"] { accent-color: var(--neon-cyan); width: 15px; height: 15px; cursor: pointer; }
+        .history-badge {
+            padding: 3px 9px; border-radius: 999px; font-size: 0.68rem;
+            text-transform: uppercase; font-weight: 700; display: inline-block;
+        }
+        .badge-scheduled { background: rgba(245, 158, 11, 0.16); color: var(--accent-gold-bright); border: 1px solid rgba(245, 158, 11, 0.4); }
+        .badge-batch { background: rgba(16, 185, 129, 0.16); color: var(--accent-emerald-bright); border: 1px solid rgba(16, 185, 129, 0.4); }
+        .badge-fallback { background: rgba(239, 68, 68, 0.16); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .badge-incoming, .badge-outgoing { background: rgba(99, 102, 241, 0.16); color: var(--accent-indigo-bright); border: 1px solid rgba(99, 102, 241, 0.4); }
+        .badge-system { background: rgba(148, 163, 184, 0.15); color: var(--text-secondary); border: 1px solid rgba(148, 163, 184, 0.3); }
+
+        input[type="checkbox"] { accent-color: var(--accent-indigo-bright); width: 15px; height: 15px; cursor: pointer; }
 
         .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(5px);
-            display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px;
+            position: fixed; inset: 0; background: rgba(3, 5, 10, 0.82);
+            backdrop-filter: blur(8px); display: none; justify-content: center;
+            align-items: center; z-index: 1000; padding: 20px;
         }
         .modal-content {
-            background: var(--metallic-panel); border: 1px solid var(--neon-cyan);
-            border-radius: 12px; width: 100%; max-width: 600px; padding: 30px;
-            box-shadow: 0 0 30px rgba(56, 189, 248, 0.4); position: relative;
+            background: linear-gradient(150deg, rgba(17, 24, 43, 0.98), rgba(8, 12, 22, 0.99));
+            border: 1px solid var(--border-indigo); border-radius: 20px;
+            width: 100%; max-width: 620px; padding: 28px;
+            box-shadow: var(--shadow-deck), var(--shadow-indigo);
+            animation: modalSpring 0.35s var(--ease-spring) both;
         }
-        .modal-content h3 { color: var(--neon-cyan); margin-bottom: 15px; font-size: 1.2rem; }
-        .modal-body { font-size: 0.88rem; line-height: 1.6; color: var(--text-main); margin-bottom: 20px; word-break: break-all; }
+        .modal-content h3 { color: var(--accent-indigo-bright); margin-bottom: 14px; font-size: 1.2rem; }
+        .modal-body { font-size: 0.88rem; line-height: 1.6; color: var(--text-primary); margin-bottom: 18px; word-break: break-word; }
         .modal-body p { margin-bottom: 8px; }
-        .modal-body span { color: var(--text-muted); }
+        .modal-body span { color: var(--text-secondary); }
         .modal-close {
-            background: var(--neon-rose); color: white; border: none; padding: 8px 16px;
-            border-radius: 6px; cursor: pointer; font-weight: bold; text-transform: uppercase; float: right;
+            background: linear-gradient(135deg, var(--accent-crimson), #be123c);
+            color: #fff; border: none; padding: 9px 18px; border-radius: 10px;
+            cursor: pointer; font-weight: 700; float: right;
         }
     </style>
 </head>
@@ -98,17 +153,18 @@
     <div class="wrapper">
         <a href="#" id="back-dashboard" class="back-btn">&larr; Back to Control Center</a>
         <div class="panel">
+            <div class="eyebrow">Audit Stream</div>
             <h2>
                 <span>📊 Live Analytics & System Audit Feed</span>
                 <div style="display: flex; gap: 8px;">
-                    <button class="btn-alt" onclick="fetchHistoryLogs()">Refresh</button>
+                    <button type="button" class="btn-alt" onclick="fetchHistoryLogs()">Refresh</button>
                 </div>
             </h2>
-            
+
             <div class="actions-bar">
-                <button class="btn-alt" style="background: linear-gradient(135deg, #0284c7, #0369a1);" onclick="deleteSelectedLogs()">Delete Selected</button>
-                <button class="btn-danger" onclick="clearAllLogs()">Clear All Logs</button>
-                <span id="selection-count" style="font-size: 0.78rem; color: var(--text-muted); margin-left: auto;">0 selected</span>
+                <button type="button" class="btn-alt" style="background: linear-gradient(135deg, var(--accent-indigo), #4f46e5); color: #fff; border-color: rgba(129, 140, 248, 0.45);" onclick="deleteSelectedLogs()">Delete Selected</button>
+                <button type="button" class="btn-danger" onclick="clearAllLogs()">Clear All Logs</button>
+                <span id="selection-count" style="font-size: 0.8rem; color: var(--text-secondary); margin-left: auto;">0 selected</span>
             </div>
 
             <div class="table-container">
@@ -117,13 +173,13 @@
                         <tr>
                             <th width="40"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll()"></th>
                             <th width="110">Type</th>
-                            <th width="150">Recipient / Sender</th>
+                            <th width="160">Recipient / Sender</th>
                             <th>Message Content</th>
-                            <th width="110">Timestamp</th>
+                            <th width="115">Timestamp</th>
                         </tr>
                     </thead>
                     <tbody id="logs-table-body">
-                        <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading activity logs...</td></tr>
+                        <tr><td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 30px;">Loading activity logs...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -134,7 +190,7 @@
         <div class="modal-content" onclick="event.stopPropagation()">
             <h3>🔍 Log Event Inspector</h3>
             <div class="modal-body" id="modal-details-body"></div>
-            <button class="modal-close" onclick="closeModal()">Close</button>
+            <button type="button" class="modal-close" onclick="closeModal()">Close</button>
             <div style="clear: both;"></div>
         </div>
     </div>
@@ -144,9 +200,9 @@
 
         function getUserId() {
             const urlParams = new URLSearchParams(window.location.search);
-            let userId = urlParams.get('userId') || localStorage.getItem('nexonUserId');
+            const userId = urlParams.get('userId') || localStorage.getItem('nexonUserId');
             if (userId) {
-                document.getElementById('back-dashboard').setAttribute('href', `/dashboard.html?userId=${userId}`);
+                document.getElementById('back-dashboard').setAttribute('href', `/dashboard.html?userId=${encodeURIComponent(userId)}`);
             } else {
                 document.getElementById('back-dashboard').setAttribute('href', `/dashboard.html`);
             }
@@ -154,22 +210,20 @@
         }
 
         async function fetchHistoryLogs() {
-            // Prevent auto-refresh from wiping user's active selections if they are currently checking boxes
             const activeSelectedIds = Array.from(document.querySelectorAll('.log-checkbox:checked')).map(cb => cb.value);
-
             const userId = getUserId();
             const tbody = document.getElementById('logs-table-body');
             try {
-                const res = await fetch(`/api/history?userId=${userId}`);
+                const res = await fetch(`/api/history?userId=${encodeURIComponent(userId)}`);
                 globalLogs = await res.json();
-                
-                if (!Array.isArray(globalLogs) || !globalLogs.length) { 
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">No activity logs recorded yet.</td></tr>`; 
+
+                if (!Array.isArray(globalLogs) || !globalLogs.length) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 30px;">No activity logs recorded yet.</td></tr>`;
                     document.getElementById('selectAllCheckbox').checked = false;
                     updateSelectionCount();
-                    return; 
+                    return;
                 }
-                
+
                 tbody.innerHTML = '';
                 globalLogs.forEach((log, index) => {
                     let badgeClass = 'badge-system';
@@ -188,26 +242,24 @@
                                 <input type="checkbox" class="log-checkbox" value="${logId}" ${isChecked} onchange="updateSelectionCount()">
                             </td>
                             <td><span class="history-badge ${badgeClass}">${log.type || 'system'}</span></td>
-                            <td style="color: var(--neon-cyan); font-family: monospace;">${log.recipient || 'N/A'}</td>
-                            <td style="color: var(--text-main); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(log.message || '')}">${escapeHtml(log.message || '')}</td>
-                            <td style="color: var(--text-muted); font-size: 0.72rem;">${log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : ''}</td>
+                            <td style="color: var(--accent-indigo-bright); font-family: monospace;">${log.recipient || 'N/A'}</td>
+                            <td style="color: var(--text-primary); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(log.message || '')}">${escapeHtml(log.message || '')}</td>
+                            <td style="color: var(--text-secondary); font-size: 0.76rem;">${log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : ''}</td>
                         </tr>
                     `;
                 });
-                
+
                 const rows = tbody.querySelectorAll('tr');
                 rows.forEach((row, index) => {
                     row.style.cursor = 'pointer';
                     row.onclick = (e) => {
-                        if (e.target.tagName !== 'INPUT') {
-                            openLogDetails(index);
-                        }
+                        if (e.target.tagName !== 'INPUT') openLogDetails(index);
                     };
                 });
 
                 updateSelectionCount();
-            } catch(e) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--neon-rose); padding: 30px;">Failed to load live logs.</td></tr>`;
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--accent-crimson); padding: 30px;">Failed to load live logs.</td></tr>`;
             }
         }
 
@@ -222,13 +274,7 @@
             const checkboxes = document.querySelectorAll('.log-checkbox');
             const checkedBoxes = document.querySelectorAll('.log-checkbox:checked');
             const selectAll = document.getElementById('selectAllCheckbox');
-            
-            if (checkboxes.length > 0 && checkedBoxes.length === checkboxes.length) {
-                selectAll.checked = true;
-            } else {
-                selectAll.checked = false;
-            }
-
+            selectAll.checked = checkboxes.length > 0 && checkedBoxes.length === checkboxes.length;
             document.getElementById('selection-count').textContent = `${checkedBoxes.length} selected`;
         }
 
@@ -238,24 +284,20 @@
                 alert('⚠️ Please select at least one log row to delete.');
                 return;
             }
-
             if (!confirm(`Are you sure you want to delete ${checkedBoxes.length} selected log(s)?`)) return;
 
             const userId = getUserId();
             const idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
 
             try {
-                const res = await fetch(`/api/history/delete-batch?userId=${userId}`, {
+                const res = await fetch(`/api/history/delete-batch?userId=${encodeURIComponent(userId)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ids: idsToDelete })
                 });
                 const data = await res.json();
-                if (res.ok) {
-                    fetchHistoryLogs();
-                } else {
-                    alert('❌ Failed: ' + (data.status || 'Unknown error'));
-                }
+                if (res.ok) fetchHistoryLogs();
+                else alert('❌ Failed: ' + (data.status || 'Unknown error'));
             } catch (err) {
                 alert('❌ Network error while deleting selected logs.');
             }
@@ -266,17 +308,14 @@
 
             const userId = getUserId();
             try {
-                const res = await fetch(`/api/history/delete-batch?userId=${userId}`, {
+                const res = await fetch(`/api/history/delete-batch?userId=${encodeURIComponent(userId)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ clearAll: true })
                 });
                 const data = await res.json();
-                if (res.ok) {
-                    fetchHistoryLogs();
-                } else {
-                    alert('❌ Failed: ' + (data.status || 'Unknown error'));
-                }
+                if (res.ok) fetchHistoryLogs();
+                else alert('❌ Failed: ' + (data.status || 'Unknown error'));
             } catch (err) {
                 alert('❌ Network error while clearing logs.');
             }
@@ -288,12 +327,12 @@
             const dt = log.timestamp ? new Date(log.timestamp) : new Date();
             document.getElementById('modal-details-body').innerHTML = `
                 <p><span>Event ID:</span> ${log.id || 'N/A'}</p>
-                <p><span>Type:</span> <strong style="color: var(--neon-cyan); text-transform:uppercase;">${log.type || 'system'}</strong></p>
+                <p><span>Type:</span> <strong style="color: var(--accent-indigo-bright); text-transform:uppercase;">${log.type || 'system'}</strong></p>
                 <p><span>Date:</span> ${dt.toLocaleDateString()}</p>
                 <p><span>Time:</span> ${dt.toLocaleTimeString()}</p>
                 <p><span>Recipient / Target:</span> ${log.recipient || 'N/A'}</p>
-                <p><span>Message / Content:</span><br><div style="background: rgba(2,6,23,0.9); padding: 10px; border-radius: 6px; border: 1px solid #334155; margin-top: 4px; color: #38bdf8; word-break: break-word;">${log.message || 'No message content'}</div></p>
-                ${log.details && Object.keys(log.details).length ? `<p style="margin-top:10px;"><span>Extra Details:</span><br><pre style="font-size:0.75rem; color:#34d399; background:rgba(2,6,23,0.9); padding:8px; border-radius:6px; overflow-x:auto;">${JSON.stringify(log.details, null, 2)}</pre></p>` : ''}
+                <p><span>Message / Content:</span><br><div style="background: rgba(6,8,14,0.92); padding: 12px; border-radius: 10px; border: 1px solid var(--border-subtle); margin-top: 6px; color: var(--accent-indigo-bright);">${escapeHtml(log.message || 'No message content')}</div></p>
+                ${log.details && Object.keys(log.details).length ? `<p style="margin-top:10px;"><span>Extra Details:</span><br><pre style="font-size:0.78rem; color:var(--accent-emerald-bright); background:rgba(6,8,14,0.92); padding:10px; border-radius:10px; overflow-x:auto;">${JSON.stringify(log.details, null, 2)}</pre></p>` : ''}
             `;
             document.getElementById('log-modal').style.display = 'flex';
         }
@@ -301,13 +340,13 @@
         function closeModal() { document.getElementById('log-modal').style.display = 'none'; }
 
         function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
-        window.onload = () => { 
+        window.onload = () => {
             getUserId();
-            fetchHistoryLogs(); 
-            setInterval(fetchHistoryLogs, 10000); // Polling interval set to 10s with selection preservation
+            fetchHistoryLogs();
+            setInterval(fetchHistoryLogs, 10000);
         };
     </script>
 </body>

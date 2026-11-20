@@ -3,269 +3,1110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexon Cyber-Metallic Hub - Control Center</title>
+    <title>NEXON Automation Hub</title>
     <style>
         :root {
-            --bg-base: #090d16;
-            --metallic-panel: linear-gradient(135deg, rgba(20, 27, 45, 0.95) 0%, rgba(10, 14, 26, 0.98) 100%);
-            --metallic-border: linear-gradient(135deg, rgba(56, 189, 248, 0.6), rgba(30, 41, 59, 0.8), rgba(56, 189, 248, 0.2));
-            --neon-cyan: #38bdf8;
-            --neon-emerald: #34d399;
-            --neon-amber: #fbbf24;
-            --neon-rose: #f43f5e;
-            --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
+            --bg-obsidian: #06080e;
+            --bg-elevated: #0c101b;
+            --bg-card: rgba(15, 21, 36, 0.88);
+            --bg-card-hover: rgba(21, 30, 52, 0.96);
+            --border-subtle: rgba(148, 163, 184, 0.14);
+            --border-indigo: rgba(99, 102, 241, 0.45);
+            --border-emerald: rgba(16, 185, 129, 0.45);
+            --accent-indigo: #6366f1;
+            --accent-indigo-bright: #818cf8;
+            --accent-emerald: #10b981;
+            --accent-emerald-bright: #34d399;
+            --accent-gold: #f59e0b;
+            --accent-gold-bright: #fbbf24;
+            --accent-crimson: #ef4444;
+            --accent-crimson-bright: #f43f5e;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-dim: #64748b;
+            --shadow-deck: 0 24px 60px rgba(0, 0, 0, 0.75);
+            --shadow-indigo: 0 0 28px rgba(99, 102, 241, 0.28);
+            --shadow-emerald: 0 0 28px rgba(16, 185, 129, 0.28);
+            --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace, sans-serif; }
-        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
-            background-color: var(--bg-base);
-            background-image: 
-                radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.25) 0%, transparent 60%),
-                linear-gradient(rgba(15, 23, 42, 0.3) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(15, 23, 42, 0.3) 1px, transparent 1px);
-            background-size: 100% 100%, 30px 30px, 30px 30px;
-            color: var(--text-main);
+            background-color: var(--bg-obsidian);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
             min-height: 100vh;
-            padding: 40px;
+            overflow-x: hidden;
+            position: relative;
+            padding: 28px 24px 64px;
         }
 
-        .scanlines {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
-            background-size: 100% 4px; z-index: 999; pointer-events: none; opacity: 0.35;
+        /* Ambient Layered Aurora & Mesh Backdrop */
+        .ambient-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 12% 8%, rgba(99, 102, 241, 0.18), transparent 42%),
+                radial-gradient(circle at 88% 15%, rgba(16, 185, 129, 0.13), transparent 40%),
+                radial-gradient(circle at 50% 95%, rgba(245, 158, 11, 0.08), transparent 48%),
+                linear-gradient(180deg, #06080e 0%, #090d18 55%, #06080e 100%);
         }
 
-        .wrapper { max-width: 1100px; margin: 0 auto; position: relative; z-index: 2; }
-
-        header {
-            display: flex; justify-content: space-between; align-items: center;
-            background: var(--metallic-panel);
-            border: 1px solid rgba(56, 189, 248, 0.4);
-            border-image: var(--metallic-border) 1;
-            padding: 25px 35px; border-radius: 14px; margin-bottom: 25px;
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            flex-wrap: wrap; gap: 20px;
+        .ambient-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(to right, rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+            background-size: 44px 44px;
+            mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 55%, transparent 100%);
         }
 
-        .logo-area h1 { font-size: 2rem; color: var(--neon-cyan); letter-spacing: 3px; text-shadow: 0 0 15px rgba(56,189,248,0.6); }
-        .logo-area p { font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 1px; }
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.45;
+            animation: driftOrb 16s ease-in-out infinite alternate;
+        }
 
-        .header-controls { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
-        
-        .live-badge { display: flex; align-items: center; gap: 10px; background: rgba(2, 6, 23, 0.9); padding: 12px 20px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.9rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
-        .pulse-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--neon-rose); box-shadow: 0 0 10px var(--neon-rose); transition: 0.3s; }
-        .pulse-dot.connected { background-color: var(--neon-emerald); box-shadow: 0 0 12px var(--neon-emerald); }
-        .pulse-dot.qr { background-color: var(--neon-amber); box-shadow: 0 0 12px var(--neon-amber); }
+        .orb-1 {
+            width: 340px;
+            height: 340px;
+            top: -80px;
+            left: -60px;
+            background: rgba(99, 102, 241, 0.25);
+        }
 
-        .switch-container { display: flex; align-items: center; gap: 14px; background: rgba(2, 6, 23, 0.9); padding: 10px 20px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
-        .switch { position: relative; display: inline-block; width: 56px; height: 28px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #0f172a; transition: .4s; border-radius: 28px; border: 1px solid #475569; }
-        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
-        input:checked + .slider { background-color: var(--neon-emerald); border-color: var(--neon-emerald); box-shadow: 0 0 15px var(--neon-emerald); }
-        input:checked + .slider:before { transform: translateX(28px); }
-        #status-text { font-weight: bold; font-size: 0.9rem; color: var(--neon-rose); text-shadow: 0 0 8px rgba(244,63,94,0.6); letter-spacing: 1px; }
+        .orb-2 {
+            width: 300px;
+            height: 300px;
+            top: 22%;
+            right: -80px;
+            background: rgba(16, 185, 129, 0.18);
+            animation-delay: -5s;
+        }
 
-        .btn-action {
-            padding: 12px 18px; border: none; border-radius: 8px; 
-            cursor: pointer; font-family: 'Courier New', Courier, monospace; font-weight: bold; 
-            text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem; transition: 0.3s;
-            display: flex; align-items: center; gap: 8px;
+        .orb-3 {
+            width: 280px;
+            height: 280px;
+            bottom: -70px;
+            left: 28%;
+            background: rgba(245, 158, 11, 0.14);
+            animation-delay: -9s;
+        }
+
+        @keyframes driftOrb {
+            0% { transform: translate3d(0, 0, 0) scale(1); }
+            50% { transform: translate3d(24px, -18px, 0) scale(1.06); }
+            100% { transform: translate3d(-18px, 22px, 0) scale(0.96); }
+        }
+
+        @keyframes slideUpFade {
+            from {
+                opacity: 0;
+                transform: translateY(18px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulsePing {
+            0% { transform: scale(1); opacity: 0.85; }
+            70% { transform: scale(2.15); opacity: 0; }
+            100% { transform: scale(2.15); opacity: 0; }
+        }
+
+        @keyframes shimmerPass {
+            0% { transform: translateX(-120%) skewX(-18deg); }
+            100% { transform: translateX(240%) skewX(-18deg); }
+        }
+
+        @keyframes modalPop {
+            from {
+                opacity: 0;
+                transform: scale(0.92) translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes toastSlide {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .deck-container {
+            max-width: 1220px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Top Command Bar */
+        .command-header {
+            background: linear-gradient(145deg, rgba(16, 23, 41, 0.92), rgba(9, 13, 24, 0.96));
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 26px 30px;
+            box-shadow: var(--shadow-deck), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 22px;
+            flex-wrap: wrap;
+            position: relative;
+            overflow: hidden;
+            animation: slideUpFade 0.65s var(--ease-smooth) both;
+        }
+
+        .command-header::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 35%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), transparent);
+            animation: shimmerPass 7s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .brand-block {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .brand-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--accent-indigo-bright);
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.32);
+            padding: 5px 12px;
+            border-radius: 999px;
+            width: fit-content;
+        }
+
+        .brand-title {
+            font-size: clamp(1.45rem, 2.6vw, 2.05rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(120deg, #ffffff 10%, #c7d2fe 55%, #6ee7b7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .user-session-strip {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 2px;
+        }
+
+        .user-id-chip {
+            font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            background: rgba(6, 8, 14, 0.75);
+            border: 1px solid var(--border-subtle);
+            padding: 5px 11px;
+            border-radius: 8px;
+        }
+
+        .chip-btn {
+            background: rgba(99, 102, 241, 0.14);
+            color: var(--accent-indigo-bright);
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            padding: 5px 11px;
+            border-radius: 8px;
+            font-size: 0.74rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s var(--ease-smooth);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chip-btn:hover {
+            background: rgba(99, 102, 241, 0.25);
+            border-color: var(--accent-indigo-bright);
+            transform: translateY(-1px);
+            color: #fff;
+        }
+
+        /* Header Action Controls */
+        .controls-cluster {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            border-radius: 12px;
+            background: rgba(6, 8, 14, 0.8);
+            border: 1px solid var(--border-subtle);
+            font-size: 0.84rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .status-dot-wrap {
+            position: relative;
+            width: 11px;
+            height: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent-crimson);
+            box-shadow: 0 0 10px var(--accent-crimson);
+            transition: all 0.35s ease;
+        }
+
+        .status-dot.connected {
+            background: var(--accent-emerald);
+            box-shadow: 0 0 12px var(--accent-emerald);
+        }
+
+        .status-dot.connected::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: var(--accent-emerald);
+            animation: pulsePing 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        .status-dot.qr {
+            background: var(--accent-gold);
+            box-shadow: 0 0 12px var(--accent-gold);
+        }
+
+        .bot-switch-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 15px;
+            border-radius: 12px;
+            background: rgba(6, 8, 14, 0.8);
+            border: 1px solid var(--border-subtle);
+        }
+
+        #status-text {
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: var(--accent-crimson-bright);
+            transition: color 0.3s ease;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-track {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: #1e293b;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            transition: 0.35s var(--ease-smooth);
+            border-radius: 999px;
+        }
+
+        .toggle-track::before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #f8fafc;
+            transition: 0.35s var(--ease-spring);
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+        }
+
+        .toggle-switch input:checked + .toggle-track {
+            background: linear-gradient(135deg, #059669, var(--accent-emerald));
+            border-color: var(--accent-emerald-bright);
+            box-shadow: 0 0 18px rgba(16, 185, 129, 0.45);
+        }
+
+        .toggle-switch input:checked + .toggle-track::before {
+            transform: translateX(24px);
+        }
+
+        .cmd-btn {
+            border: 1px solid transparent;
+            border-radius: 12px;
+            padding: 10px 15px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.28s var(--ease-smooth);
+            position: relative;
+            overflow: hidden;
             text-decoration: none;
         }
 
-        .disconnect-btn { background: #ef4444; color: #fff; box-shadow: 0 0 15px rgba(239,68,68,0.4); }
-        .disconnect-btn:hover { background: #dc2626; box-shadow: 0 0 20px rgba(239,68,68,0.7); transform: translateY(-2px); }
-
-        .qr-btn { background: var(--neon-amber); color: #090d16; box-shadow: 0 0 15px rgba(251,191,36,0.4); }
-        .qr-btn:hover { background: #f59e0b; box-shadow: 0 0 20px rgba(251,191,36,0.7); transform: translateY(-2px); }
-
-        .pair-btn { background: var(--neon-cyan); color: #090d16; box-shadow: 0 0 15px rgba(56,189,248,0.4); }
-        .pair-btn:hover { background: #0284c7; color: #fff; box-shadow: 0 0 20px rgba(56,189,248,0.7); transform: translateY(-2px); }
-
-        .logout-btn { background: var(--neon-rose); color: #fff; box-shadow: 0 0 15px rgba(244,63,94,0.4); }
-        .logout-btn:hover { background: #e11d48; box-shadow: 0 0 20px rgba(244,63,94,0.7); transform: translateY(-2px); }
-
-        .stats-ticker {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px;
+        .cmd-btn:hover {
+            transform: translateY(-2px);
         }
-        @media(max-width: 768px) { .stats-ticker { grid-template-columns: 1fr; } }
-        .stat-box {
-            background: var(--metallic-panel); border: 1px solid rgba(56, 189, 248, 0.25);
-            border-radius: 10px; padding: 15px 20px; text-align: center;
-            box-shadow: inset 0 1px 3px rgba(255,255,255,0.05), 0 5px 15px rgba(0,0,0,0.5);
-        }
-        .stat-box span { display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-        .stat-box h4 { font-size: 1.5rem; color: var(--neon-cyan); text-shadow: 0 0 10px rgba(56,189,248,0.4); }
 
-        .nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
-        @media(max-width: 768px) { .nav-grid { grid-template-columns: 1fr; } }
-
-        .nav-card {
-            background: var(--metallic-panel);
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            border-radius: 14px; padding: 30px; text-decoration: none; color: var(--text-main);
-            box-shadow: 0 15px 45px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-            position: relative; overflow: hidden;
-            transition: all 0.3s ease; display: flex; flex-direction: column; gap: 10px;
+        .cmd-btn:active {
+            transform: translateY(0) scale(0.98);
         }
-        .nav-card:hover {
-            border-color: var(--neon-cyan);
-            box-shadow: 0 20px 55px rgba(56, 189, 248, 0.3);
+
+        .btn-qr {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.14));
+            color: var(--accent-gold-bright);
+            border-color: rgba(245, 158, 11, 0.45);
+        }
+
+        .btn-qr:hover {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.32), rgba(217, 119, 6, 0.22));
+            box-shadow: 0 8px 24px rgba(245, 158, 11, 0.24);
+        }
+
+        .btn-pair {
+            background: linear-gradient(135deg, var(--accent-indigo), #4f46e5);
+            color: #ffffff;
+            border-color: rgba(129, 140, 248, 0.5);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-pair:hover {
+            box-shadow: 0 10px 28px rgba(99, 102, 241, 0.48);
+        }
+
+        .btn-disconnect {
+            background: rgba(239, 68, 68, 0.14);
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-disconnect:hover {
+            background: rgba(239, 68, 68, 0.26);
+            color: #ffffff;
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.25);
+        }
+
+        .btn-logout {
+            background: rgba(244, 63, 94, 0.16);
+            color: #fda4af;
+            border-color: rgba(244, 63, 94, 0.42);
+        }
+
+        .btn-logout:hover {
+            background: linear-gradient(135deg, #e11d48, var(--accent-crimson));
+            color: #ffffff;
+            box-shadow: 0 8px 24px rgba(244, 63, 94, 0.32);
+        }
+
+        /* Telemetry & Filter Bar */
+        .telemetry-bar {
+            margin-top: 18px;
+            background: rgba(12, 16, 27, 0.85);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            backdrop-filter: blur(12px);
+            animation: slideUpFade 0.7s var(--ease-smooth) 0.08s both;
+        }
+
+        .telemetry-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .telemetry-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent-emerald-bright);
+            font-weight: 600;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filter-pill {
+            background: rgba(15, 21, 36, 0.9);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s var(--ease-smooth);
+        }
+
+        .filter-pill:hover {
+            color: var(--text-primary);
+            border-color: var(--border-indigo);
+        }
+
+        .filter-pill.active {
+            background: rgba(99, 102, 241, 0.2);
+            color: #ffffff;
+            border-color: var(--accent-indigo-bright);
+            box-shadow: 0 0 16px rgba(99, 102, 241, 0.25);
+        }
+
+        /* KPI Metrics Grid */
+        .metrics-grid {
+            margin-top: 22px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            animation: slideUpFade 0.75s var(--ease-smooth) 0.14s both;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 18px;
+            padding: 22px 24px;
+            box-shadow: var(--shadow-deck);
+            backdrop-filter: blur(14px);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.32s var(--ease-smooth), border-color 0.32s ease, box-shadow 0.32s ease;
+        }
+
+        .metric-card:hover {
             transform: translateY(-4px);
-        }
-        .nav-card::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 6px; height: 100%;
-            background: linear-gradient(to bottom, var(--neon-cyan), var(--neon-emerald));
-            box-shadow: 0 0 12px var(--neon-cyan);
-        }
-        .nav-card h3 { font-size: 1.4rem; color: var(--neon-cyan); letter-spacing: 1px; text-shadow: 0 0 8px rgba(56,189,248,0.4); }
-        .nav-card p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.4; }
-
-        /* --- MOBILE RESPONSIVE TWEAKS --- */
-        @media screen and (max-width: 768px) {
-            body { padding: 15px; }
-            header { padding: 20px 15px; }
-            .logo-area h1 { font-size: 1.4rem; letter-spacing: 1px; }
-            .header-controls { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-            .live-badge, .switch-container { width: 100%; grid-column: span 2; justify-content: space-between; }
-            .btn-action { width: 100%; justify-content: center; padding: 10px 12px; font-size: 0.75rem; text-align: center; }
-            .nav-grid { grid-template-columns: 1fr; gap: 15px; }
-            .nav-card { padding: 20px; }
+            border-color: var(--border-indigo);
+            box-shadow: var(--shadow-deck), var(--shadow-indigo);
         }
 
-        /* Modal Overlay for Pair Code */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(5px);
-            display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px;
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-indigo), var(--accent-emerald));
+            opacity: 0.85;
         }
-        .modal-content {
-            background: var(--metallic-panel); border: 1px solid rgba(56, 189, 248, 0.4);
-            border-image: var(--metallic-border) 1;
-            border-radius: 14px; width: 100%; max-width: 480px; padding: 35px;
-            box-shadow: 0 15px 45px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-            text-align: center; position: relative;
-        }
-        .modal-content h3 { color: var(--neon-cyan); margin-bottom: 15px; font-size: 1.4rem; letter-spacing: 1px; }
-        .modal-content p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px; line-height: 1.5; }
-        
-        .phone-input-group {
-            display: flex; gap: 10px; margin-bottom: 20px;
-        }
-        .modal-select {
-            background: rgba(2, 6, 23, 0.9); border: 1px solid rgba(56, 189, 248, 0.3);
-            padding: 12px 10px; border-radius: 8px; color: var(--text-main); font-size: 0.9rem; outline: none;
-            font-family: 'Courier New', Courier, monospace; width: 150px; cursor: pointer;
-        }
-        .modal-select option { background: #090d16; color: var(--text-main); }
-        .modal-input {
-            flex: 1; background: rgba(2, 6, 23, 0.9); border: 1px solid rgba(56, 189, 248, 0.3);
-            padding: 12px 16px; border-radius: 8px; color: var(--text-main); font-size: 1rem; outline: none;
-            font-family: 'Courier New', Courier, monospace;
-        }
-        .modal-input:focus, .modal-select:focus { border-color: var(--neon-cyan); box-shadow: 0 0 12px rgba(56,189,248,0.4); }
 
-        .footer-note {
-            text-align: center; margin-top: 40px; font-size: 0.8rem; color: var(--text-muted);
-            letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.7;
+        .metric-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .metric-label {
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .metric-icon-badge {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(99, 102, 241, 0.14);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            font-size: 1rem;
+        }
+
+        .metric-value {
+            font-size: 2.15rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            line-height: 1.1;
+        }
+
+        .metric-sub {
+            margin-top: 8px;
+            font-size: 0.76rem;
+            color: var(--text-dim);
+        }
+
+        /* Section Title */
+        .section-heading {
+            margin-top: 30px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            animation: slideUpFade 0.8s var(--ease-smooth) 0.18s both;
+        }
+
+        .section-heading h2 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-primary);
+        }
+
+        .section-heading span {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+        }
+
+        /* Modules Grid */
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            animation: slideUpFade 0.85s var(--ease-smooth) 0.22s both;
+        }
+
+        .module-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 18px;
+            padding: 26px;
+            text-decoration: none;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-deck);
+            backdrop-filter: blur(14px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 14px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.35s var(--ease-smooth);
+        }
+
+        .module-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 85% 15%, rgba(99, 102, 241, 0.14), transparent 55%);
+            opacity: 0;
+            transition: opacity 0.35s ease;
+            pointer-events: none;
+        }
+
+        .module-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-indigo);
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-deck), var(--shadow-indigo);
+        }
+
+        .module-card:hover::before {
+            opacity: 1;
+        }
+
+        .module-card.hidden-by-filter {
+            display: none;
+        }
+
+        .module-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .module-title {
+            font-size: 1.22rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+            transition: color 0.25s ease;
+        }
+
+        .module-card:hover .module-title {
+            color: var(--accent-indigo-bright);
+        }
+
+        .module-tag {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 4px 11px;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--accent-emerald-bright);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            white-space: nowrap;
+        }
+
+        .module-desc {
+            font-size: 0.88rem;
+            line-height: 1.55;
+            color: var(--text-secondary);
+        }
+
+        .module-footer-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 8px;
+            border-top: 1px solid rgba(148, 163, 184, 0.08);
+            font-size: 0.78rem;
+            color: var(--text-dim);
+        }
+
+        .module-arrow {
+            color: var(--accent-indigo-bright);
+            font-weight: 700;
+            transition: transform 0.28s var(--ease-smooth);
+        }
+
+        .module-card:hover .module-arrow {
+            transform: translateX(5px);
+        }
+
+        /* Footer */
+        .deck-footer {
+            margin-top: 42px;
+            text-align: center;
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .deck-footer strong {
+            color: var(--accent-indigo-bright);
+        }
+
+        /* Pair Code Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(3, 5, 10, 0.82);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1200;
+            padding: 20px;
+        }
+
+        .modal-dialog {
+            background: linear-gradient(150deg, rgba(17, 24, 43, 0.98), rgba(8, 12, 22, 0.99));
+            border: 1px solid var(--border-indigo);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 480px;
+            padding: 32px;
+            box-shadow: var(--shadow-deck), var(--shadow-indigo);
+            text-align: center;
+            animation: modalPop 0.35s var(--ease-spring) both;
+        }
+
+        .modal-dialog h3 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .modal-dialog p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .phone-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .country-select, .phone-field {
+            background: rgba(6, 8, 14, 0.92);
+            border: 1px solid var(--border-subtle);
+            border-radius: 11px;
+            padding: 12px 14px;
+            color: var(--text-primary);
+            font-size: 0.92rem;
+            outline: none;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .country-select {
+            width: 155px;
+            cursor: pointer;
+        }
+
+        .phone-field {
+            flex: 1;
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+        }
+
+        .country-select:focus, .phone-field:focus {
+            border-color: var(--accent-indigo-bright);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .code-result-box {
+            margin-top: 18px;
+            display: none;
+        }
+
+        .code-display {
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: 0.2em;
+            color: var(--accent-emerald-bright);
+            background: rgba(6, 8, 14, 0.95);
+            border: 1px dashed rgba(16, 185, 129, 0.55);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        /* Toast Notification Stack */
+        .toast-stack {
+            position: fixed;
+            top: 22px;
+            right: 22px;
+            z-index: 1500;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 360px;
+        }
+
+        .toast-item {
+            background: rgba(15, 21, 36, 0.96);
+            border: 1px solid var(--border-indigo);
+            border-left: 4px solid var(--accent-indigo-bright);
+            color: var(--text-primary);
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.82rem;
+            box-shadow: var(--shadow-deck);
+            animation: toastSlide 0.3s var(--ease-smooth) both;
+        }
+
+        /* Responsive Tweaks */
+        @media (max-width: 900px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+            .modules-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 14px 12px 44px;
+            }
+            .command-header {
+                padding: 20px 16px;
+            }
+            .controls-cluster {
+                width: 100%;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .status-pill, .bot-switch-box {
+                grid-column: span 2;
+                justify-content: space-between;
+            }
+            .cmd-btn {
+                justify-content: center;
+                font-size: 0.75rem;
+                padding: 10px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="scanlines"></div>
-    <div class="wrapper">
-        <header>
-            <div class="logo-area">
-                <h1>NEXON AUTOMATION HUB</h1>
-                <p id="user-info">Cyber-Metallic Control Sub-Grid v3.5</p>
+    <div class="ambient-canvas"></div>
+    <div class="ambient-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <div class="deck-container">
+        <header class="command-header">
+            <div class="brand-block">
+                <span class="brand-eyebrow">⚡ Obsidian-Titanium Control Deck v4.0</span>
+                <h1 class="brand-title">NEXON AUTOMATION HUB</h1>
+                <div class="user-session-strip">
+                    <span class="user-id-chip" id="user-info">USER ID: Loading...</span>
+                    <button type="button" class="chip-btn" onclick="copyUserId()">📋 Copy ID</button>
+                </div>
             </div>
-            <div class="header-controls">
-                <div class="live-badge">
-                    <div class="pulse-dot" id="connection-pulse"></div>
+
+            <div class="controls-cluster">
+                <div class="status-pill">
+                    <span class="status-dot-wrap">
+                        <span class="status-dot" id="connection-pulse"></span>
+                    </span>
                     <span id="connection-label">Connecting...</span>
                 </div>
-                <div class="switch-container">
+
+                <div class="bot-switch-box">
                     <span id="status-text">BOT OFF</span>
-                    <label class="switch">
+                    <label class="toggle-switch">
                         <input type="checkbox" id="bot-toggle" onchange="toggleBotStatus()">
-                        <span class="slider"></span>
+                        <span class="toggle-track"></span>
                     </label>
                 </div>
-                <button class="btn-action qr-btn" id="qr-btn-trigger" onclick="checkAndShowQR()">
+
+                <button type="button" class="cmd-btn btn-qr" id="qr-btn-trigger" onclick="checkAndShowQR()">
                     📱 WhatsApp QR Code
                 </button>
-                <button class="btn-action pair-btn" onclick="openPairCodeModal()">
+
+                <button type="button" class="cmd-btn btn-pair" onclick="openPairCodeModal()">
                     🔑 Login with Pair Code
                 </button>
-                <button class="btn-action disconnect-btn" onclick="resetSession()">
+
+                <button type="button" class="cmd-btn btn-disconnect" onclick="resetSession()">
                     🔌 Disconnect & Reset
                 </button>
-                <button class="btn-action logout-btn" onclick="logoutUser()">
+
+                <button type="button" class="cmd-btn btn-logout" onclick="logoutUser()">
                     🚪 Logout
                 </button>
             </div>
         </header>
 
-        <div class="stats-ticker">
-            <div class="stat-box">
-                <span>Total VCF Contacts</span>
-                <h4 id="stat-contacts">0</h4>
+        <section class="telemetry-bar">
+            <div class="telemetry-meta">
+                <span class="telemetry-badge">● MongoDB Cloud Sync Active</span>
+                <span id="last-sync-label">Last Sync: --:--:--</span>
+                <button type="button" class="chip-btn" onclick="fetchSystemStatus()">🔄 Refresh Now</button>
             </div>
-            <div class="stat-box">
-                <span>Active Batches</span>
-                <h4 id="stat-batches">0</h4>
+
+            <div class="filter-group" role="group" aria-label="Module Filter">
+                <button type="button" class="filter-pill active" data-filter="all" onclick="filterModules('all', this)">All Modules (6)</button>
+                <button type="button" class="filter-pill" data-filter="automation" onclick="filterModules('automation', this)">Automation</button>
+                <button type="button" class="filter-pill" data-filter="data" onclick="filterModules('data', this)">Contacts & Logs</button>
             </div>
-            <div class="stat-box">
-                <span>Scheduled Dispatches</span>
-                <h4 id="stat-scheduled">0</h4>
+        </section>
+
+        <section class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-top">
+                    <span class="metric-label">Total VCF Contacts</span>
+                    <span class="metric-icon-badge">📇</span>
+                </div>
+                <div class="metric-value" id="stat-contacts">0</div>
+                <div class="metric-sub">Persisted per user in MongoDB</div>
             </div>
+
+            <div class="metric-card">
+                <div class="metric-top">
+                    <span class="metric-label">Active Batches</span>
+                    <span class="metric-icon-badge">👥</span>
+                </div>
+                <div class="metric-value" id="stat-batches">0</div>
+                <div class="metric-sub">Targeted contact reply groups</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-top">
+                    <span class="metric-label">Scheduled Dispatches</span>
+                    <span class="metric-icon-badge">⏰</span>
+                </div>
+                <div class="metric-value" id="stat-scheduled">0</div>
+                <div class="metric-sub">Queued messages & media tasks</div>
+            </div>
+        </section>
+
+        <div class="section-heading">
+            <h2>Control Modules</h2>
+            <span>Select a module to configure or monitor</span>
         </div>
 
-        <div class="nav-grid">
-            <a href="vcf.html" class="nav-card">
-                <h3>📂 1. VCF Contact Ingestion</h3>
-                <p>Upload vCard files with visual file pickers, parse contacts cleanly, and manage local database records with high security.</p>
+        <main class="modules-grid" id="modules-grid">
+            <a href="vcf.html" class="nav-card module-card" data-category="data">
+                <div>
+                    <div class="module-header-row">
+                        <h3 class="module-title">📂 1. VCF Contact Ingestion</h3>
+                        <span class="module-tag" id="pill-contacts">0 Contacts</span>
+                    </div>
+                    <p class="module-desc">Upload vCard files with visual file pickers, parse contacts cleanly, and manage persistent account records.</p>
+                </div>
+                <div class="module-footer-row">
+                    <span>Module: vcf.html</span>
+                    <span class="module-arrow">Open →</span>
+                </div>
             </a>
-            <a href="fallback.html" class="nav-card">
-                <h3>💬 2. Unknown Fallback Settings</h3>
-                <p>Configure custom auto-reply templates for non-VCF numbers with strict anti-spam cooldown protection rules.</p>
-            </a>
-            <a href="scheduler.html" class="nav-card">
-                <h3>⏰ 3. Message Scheduler & Media</h3>
-                <p>Schedule dispatches to single or multiple contacts with direct computer file browser attachments and multi-format support.</p>
-            </a>
-            <a href="batches.html" class="nav-card">
-                <h3>👥 4. Custom Message Batches</h3>
-                <p>Group contacts into custom batches using live search filters and assign specialized automated responses instantly.</p>
-            </a>
-            <a href="telegram.html" class="nav-card">
-                <h3>🛡️ 5. Telegram Anti-Revoke Logger</h3>
-                <p>Configure independent Telegram API tokens, chat IDs, and manage real-time message/media logger toggle switches.</p>
-            </a>
-            <a href="analytics.html" class="nav-card">
-                <h3>📊 6. Live Analytics & History</h3>
-                <p>Track live dispatches, automated batch responses, and fallback interactions in a comprehensive real-time activity feed.</p>
-            </a>
-        </div>
 
-        <div class="footer-note">
-            <p style="color: #38bdf8; text-shadow: 0 0 10px rgba(56,189,248,0.6);">© 2026 ɴᴇxᴏɴ ᴀᴜᴛᴏᴍᴀᴛɪᴏɴ ɢʀɪᴅ & ʀᴏᴏᴛ-ᴀᴄᴄᴇꜱꜱ ɪɴɪᴛɪᴀʟɪᴢᴇᴅ ʙʏ <span style="color: #38bdf8; font-weight: bold; text-shadow: 0 0 12px rgba(56,189,248,0.9);">𝐃𝐄𝐕𝐈𝐋</span>. ᴀʟʟ ʀɪɢʜᴛꜱ ʀᴇꜱᴇʀᴠᴇᴅ.</p>
-        </div>
+            <a href="fallback.html" class="nav-card module-card" data-category="automation">
+                <div>
+                    <div class="module-header-row">
+                        <h3 class="module-title">💬 2. Unknown Fallback Settings</h3>
+                        <span class="module-tag">Auto-Reply</span>
+                    </div>
+                    <p class="module-desc">Configure custom auto-reply templates for non-VCF numbers with strict anti-spam cooldown protection rules.</p>
+                </div>
+                <div class="module-footer-row">
+                    <span>Module: fallback.html</span>
+                    <span class="module-arrow">Open →</span>
+                </div>
+            </a>
+
+            <a href="scheduler.html" class="nav-card module-card" data-category="automation">
+                <div>
+                    <div class="module-header-row">
+                        <h3 class="module-title">⏰ 3. Message Scheduler & Media</h3>
+                        <span class="module-tag" id="pill-scheduled">0 Queued</span>
+                    </div>
+                    <p class="module-desc">Schedule dispatches to single or multiple contacts with direct computer file browser attachments and multi-format support.</p>
+                </div>
+                <div class="module-footer-row">
+                    <span>Module: scheduler.html</span>
+                    <span class="module-arrow">Open →</span>
+                </div>
+            </a>
+
+            <a href="batches.html" class="nav-card module-card" data-category="automation">
+                <div>
+                    <div class="module-header-row">
+                        <h3 class="module-title">👥 4. Custom Message Batches</h3>
+                        <span class="module-tag" id="pill-batches">0 Batches</span>
+                    </div>
+                    <p class="module-desc">Group contacts into custom batches using live search filters and assign specialized automated responses instantly.</p>
+                </div>
+                <div class="module-footer-row">
+                    <span>Module: batches.html</span>
+                    <span class="module-arrow">Open →</span>
+                </div>
+            </a>
+
+            <a href="telegram.html" class="nav-card module-card" data-category="data">
+                <div>
+                    <div class="module-header-row">
+                        <h3 class="module-title">🛡️ 5. Telegram Anti-Revoke Logger</h3>
+                        <span class="module-tag">Live Mirror</span>
+                    </div>
+                    <p class="module-desc">Configure independent Telegram chat IDs and manage real-time incoming/outgoing message & media logging.</p>
+                </div>
+                <div class="module-footer-row">
+                    <span>Module: telegram.html</span>
+                    <span class="module-arrow">Open →</span>
+                </div>
+            </a>
+
+            <a href="analytics.html" class="nav-card module-card" data-category="data">
+                <div>
+                    <div class="module-header-row">
+                        <h3 class="module-title">📊 6. Live Analytics & History</h3>
+                        <span class="module-tag">Activity Feed</span>
+                    </div>
+                    <p class="module-desc">Track live dispatches, automated batch responses, and fallback interactions in a comprehensive real-time activity feed.</p>
+                </div>
+                <div class="module-footer-row">
+                    <span>Module: analytics.html</span>
+                    <span class="module-arrow">Open →</span>
+                </div>
+            </a>
+        </main>
+
+        <footer class="deck-footer">
+            © 2026 NEXON AUTOMATION GRID &bull; INITIALIZED BY <strong>DEVIL</strong> &bull; ALL RIGHTS RESERVED
+        </footer>
     </div>
 
-    <!-- Pair Code Modal Dialog Box -->
-    <div class="modal-overlay" id="pairCodeModal" onclick="closePairCodeModal()">
-        <div class="modal-content" onclick="event.stopPropagation()">
+    <!-- Pair Code Modal -->
+    <div class="modal-backdrop" id="pairCodeModal" onclick="closePairCodeModal()">
+        <div class="modal-dialog" onclick="event.stopPropagation()">
             <h3>📱 WhatsApp Phone Pairing</h3>
             <p id="pair-instructions">
                 Select your country, enter your phone number, and generate your 8-digit code.
             </p>
-            
-            <div class="phone-input-group">
-                <select id="country-code-select" class="modal-select" onchange="updatePhoneValidation()">
+
+            <div class="phone-row">
+                <select id="country-code-select" class="country-select" onchange="updatePhoneValidation()">
                     <option value="91" selected>India (+91)</option>
                     <option value="1">USA / Canada (+1)</option>
                     <option value="44">UK (+44)</option>
@@ -283,34 +1124,63 @@
                     <option value="34">Spain (+34)</option>
                     <option value="27">South Africa (+27)</option>
                 </select>
-                <input type="text" class="modal-input" id="user-phone-input" placeholder="9876543210" maxlength="12">
+                <input type="text" class="phone-field" id="user-phone-input" placeholder="9876543210" maxlength="12">
             </div>
 
-            <button class="btn-action pair-btn" id="generate-btn" onclick="requestPairingCode()" style="width: 100%; justify-content: center; margin-bottom: 15px;">
+            <button type="button" class="cmd-btn btn-pair" id="generate-btn" onclick="requestPairingCode()" style="width: 100%; justify-content: center;">
                 Generate 8-Digit Code
             </button>
 
-            <div id="pairing-code-container" style="margin-top: 20px; display: none;">
-                <p style="margin-bottom: 8px; color: var(--text-muted);">Your 8-Digit WhatsApp Pairing Code:</p>
-                <div id="display-pairing-code" style="font-size: 1.8rem; font-weight: bold; color: var(--neon-emerald); letter-spacing: 3px; background: rgba(2,6,23,0.9); padding: 15px; border-radius: 8px; border: 1px dashed var(--neon-emerald); display: inline-block; width: 100%; text-shadow: 0 0 10px rgba(52,211,153,0.4);">
-                    ---- ----
-                </div>
-                <p style="font-size: 0.75rem; margin-top: 12px; color: var(--text-muted); line-height: 1.4;">
+            <div class="code-result-box" id="pairing-code-container">
+                <p style="margin-bottom: 8px; color: var(--text-secondary);">Your 8-Digit WhatsApp Pairing Code:</p>
+                <div class="code-display" id="display-pairing-code">---- ----</div>
+                <button type="button" class="chip-btn" onclick="copyPairingCode()" style="margin: 0 auto 12px;">📋 Copy Code</button>
+                <p style="font-size: 0.76rem; color: var(--text-dim); margin-bottom: 0;">
                     Open WhatsApp &rarr; Linked Devices &rarr; Link a Device &rarr; Link with phone number instead.
                 </p>
             </div>
-            <button class="btn-action logout-btn" onclick="closePairCodeModal()" style="margin-top: 15px; width: 100%; justify-content: center;">
+
+            <button type="button" class="cmd-btn btn-logout" onclick="closePairCodeModal()" style="margin-top: 16px; width: 100%; justify-content: center;">
                 Close
             </button>
         </div>
     </div>
 
     <script>
+        function showToast(message) {
+            const stack = document.getElementById('toast-stack');
+            if (!stack) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast-item';
+            toast.textContent = message;
+            stack.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(20px)';
+                toast.style.transition = 'all 0.25s ease';
+                setTimeout(() => toast.remove(), 260);
+            }, 3200);
+        }
+
+        function filterModules(category, btnEl) {
+            document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+
+            document.querySelectorAll('.module-card').forEach(card => {
+                const cardCat = card.getAttribute('data-category');
+                if (category === 'all' || cardCat === category) {
+                    card.classList.remove('hidden-by-filter');
+                } else {
+                    card.classList.add('hidden-by-filter');
+                }
+            });
+        }
+
         function updatePhoneValidation() {
             const select = document.getElementById('country-code-select');
             const input = document.getElementById('user-phone-input');
             const code = select.value;
-            
+
             if (code === '91') {
                 input.placeholder = '9876543210';
                 input.maxLength = 10;
@@ -336,19 +1206,39 @@
                     window.location.replace('/index.html');
                     return null;
                 } else {
-                    window.history.replaceState({}, '', `${window.location.pathname}?userId=${userId}`);
+                    window.history.replaceState({}, '', `${window.location.pathname}?userId=${encodeURIComponent(userId)}`);
                 }
             } else {
                 localStorage.setItem('nexonUserId', userId);
             }
-            
+
             document.querySelectorAll('.nav-card').forEach(card => {
                 const baseHref = card.getAttribute('href').split('?')[0];
-                card.setAttribute('href', `${baseHref}?userId=${userId}`);
+                card.setAttribute('href', `${baseHref}?userId=${encodeURIComponent(userId)}`);
             });
 
             document.getElementById('user-info').textContent = `USER ID: ${userId}`;
             return userId;
+        }
+
+        async function copyUserId() {
+            const userId = checkAuth();
+            if (!userId) return;
+            try {
+                await navigator.clipboard.writeText(userId);
+                showToast('✅ User ID copied to clipboard!');
+            } catch (e) {
+                alert('User ID: ' + userId);
+            }
+        }
+
+        async function copyPairingCode() {
+            const codeText = document.getElementById('display-pairing-code')?.textContent?.trim();
+            if (!codeText || codeText.includes('----')) return;
+            try {
+                await navigator.clipboard.writeText(codeText);
+                showToast('✅ Pairing code copied!');
+            } catch (e) {}
         }
 
         function logoutUser() {
@@ -360,16 +1250,16 @@
             const userId = checkAuth();
             if (!userId) return;
             try {
-                const res = await fetch(`/api/status?userId=${userId}`);
+                const res = await fetch(`/api/status?userId=${encodeURIComponent(userId)}`);
                 const data = await res.json();
-                
+
                 if (data.status === 'connected') {
                     alert('✅ Success: Your WhatsApp device is already connected!');
                 } else {
-                    window.location.href = `/qr?userId=${userId}`;
+                    window.location.href = `/qr?userId=${encodeURIComponent(userId)}`;
                 }
             } catch (e) {
-                window.location.href = `/qr?userId=${userId}`;
+                window.location.href = `/qr?userId=${encodeURIComponent(userId)}`;
             }
         }
 
@@ -378,9 +1268,9 @@
             if (!userId) return;
 
             try {
-                const res = await fetch(`/api/status?userId=${userId}`);
+                const res = await fetch(`/api/status?userId=${encodeURIComponent(userId)}`);
                 const data = await res.json();
-                
+
                 if (data.status === 'connected') {
                     alert('✅ Success: Your WhatsApp device is already connected!');
                     return;
@@ -402,7 +1292,7 @@
         async function requestPairingCode() {
             const userId = checkAuth();
             if (!userId) return;
-            
+
             const countryCode = document.getElementById('country-code-select').value;
             const rawNumber = document.getElementById('user-phone-input').value.trim().replace(/[^0-9]/g, '');
             const generateBtn = document.getElementById('generate-btn');
@@ -443,35 +1333,47 @@
             const userId = checkAuth();
             if (!userId) return;
             try {
-                const res = await fetch(`/api/status?userId=${userId}`);
+                const res = await fetch(`/api/status?userId=${encodeURIComponent(userId)}`);
                 const data = await res.json();
-                
+
                 const dot = document.getElementById('connection-pulse');
                 const label = document.getElementById('connection-label');
                 const toggle = document.getElementById('bot-toggle');
                 const statusText = document.getElementById('status-text');
 
-                document.getElementById('stat-contacts').textContent = data.totalContacts || 0;
-                document.getElementById('stat-batches').textContent = data.activeBatches || 0;
-                document.getElementById('stat-scheduled').textContent = data.scheduledCount || 0;
+                const contactsCount = data.totalContacts || 0;
+                const batchesCount = data.activeBatches || 0;
+                const scheduledCount = data.scheduledCount || 0;
+
+                document.getElementById('stat-contacts').textContent = contactsCount;
+                document.getElementById('stat-batches').textContent = batchesCount;
+                document.getElementById('stat-scheduled').textContent = scheduledCount;
+
+                document.getElementById('pill-contacts').textContent = `${contactsCount} Contacts`;
+                document.getElementById('pill-batches').textContent = `${batchesCount} Batches`;
+                document.getElementById('pill-scheduled').textContent = `${scheduledCount} Queued`;
+
+                document.getElementById('last-sync-label').textContent = `Last Sync: ${new Date().toLocaleTimeString()}`;
 
                 if (data.status === 'connected') {
-                    dot.className = 'pulse-dot connected';
+                    dot.className = 'status-dot connected';
                     label.textContent = 'WhatsApp Connected';
                 } else if (data.status === 'qr_waiting') {
-                    dot.className = 'pulse-dot qr';
+                    dot.className = 'status-dot qr';
                     label.textContent = 'Scan QR Code Required';
                 } else {
-                    dot.className = 'pulse-dot';
+                    dot.className = 'status-dot';
                     label.textContent = 'Disconnected';
                 }
 
                 if (toggle.checked !== data.enabled) {
                     toggle.checked = data.enabled;
                     statusText.textContent = data.enabled ? "BOT ON" : "BOT OFF";
-                    statusText.style.color = data.enabled ? "var(--neon-emerald)" : "var(--neon-rose)";
+                    statusText.style.color = data.enabled ? "var(--accent-emerald-bright)" : "var(--accent-crimson-bright)";
                 }
-            } catch (err) { console.error('Status fetch error:', err); }
+            } catch (err) {
+                console.error('Status fetch error:', err);
+            }
         }
 
         async function toggleBotStatus() {
@@ -480,13 +1382,14 @@
             const isChecked = document.getElementById('bot-toggle').checked;
             const statusText = document.getElementById('status-text');
             statusText.textContent = isChecked ? "BOT ON" : "BOT OFF";
-            statusText.style.color = isChecked ? "var(--neon-emerald)" : "var(--neon-rose)";
-            
+            statusText.style.color = isChecked ? "var(--accent-emerald-bright)" : "var(--accent-crimson-bright)";
+
             await fetch('/api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId, enabled: isChecked })
             });
+            showToast(isChecked ? '✅ Automation Bot Enabled' : '⏸️ Automation Bot Paused');
         }
 
         async function resetSession() {
@@ -502,7 +1405,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId })
                 });
-                
+
                 const data = await response.json();
                 alert(data.status);
                 setTimeout(() => { window.location.reload(); }, 2000);

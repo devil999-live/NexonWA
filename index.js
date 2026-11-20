@@ -33,25 +33,341 @@ if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR);
 // 🔑 MONGODB CONNECTION CONFIG
 const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://aryanraj10701_db_user:aryanrajmongodb@cluster.midwcil.mongodb.net/nexon_wa?retryWrites=true&w=majority";
 let mongoClient;
+let dbInstance;
 let sessionsCollection;
+let contactsCollection;
+let batchesCollection;
+let historyCollection;
+let schedulesCollection;
+let telegramConfigCollection;
+let userConfigCollection;
+let mongoConnectPromise = null;
 
-async function connectMongo() {
+async function ensureMongo() {
+    if (
+        sessionsCollection &&
+        contactsCollection &&
+        batchesCollection &&
+        historyCollection &&
+        schedulesCollection &&
+        telegramConfigCollection &&
+        userConfigCollection
+    ) {
+        return {
+            sessionsCollection,
+            contactsCollection,
+            batchesCollection,
+            historyCollection,
+            schedulesCollection,
+            telegramConfigCollection,
+            userConfigCollection
+        };
+    }
+    if (!mongoConnectPromise) {
+        mongoConnectPromise = (async () => {
+            try {
+                mongoClient = new MongoClient(MONGO_URI);
+                await mongoClient.connect();
+                dbInstance = mongoClient.db('nexon_wa');
+                sessionsCollection = dbInstance.collection('whatsapp_sessions');
+                contactsCollection = dbInstance.collection('user_contacts');
+                batchesCollection = dbInstance.collection('user_batches');
+                historyCollection = dbInstance.collection('user_history');
+                schedulesCollection = dbInstance.collection('user_schedules');
+                telegramConfigCollection = dbInstance.collection('user_telegram_config');
+                userConfigCollection = dbInstance.collection('user_config');
+
+                await contactsCollection.createIndex({ userId: 1 }, { unique: true });
+                await batchesCollection.createIndex({ userId: 1 }, { unique: true });
+                await historyCollection.createIndex({ userId: 1 }, { unique: true });
+                await schedulesCollection.createIndex({ userId: 1 }, { unique: true });
+                await telegramConfigCollection.createIndex({ userId: 1 }, { unique: true });
+                await userConfigCollection.createIndex({ userId: 1 }, { unique: true });
+                console.log('✅ Connected to MongoDB successfully!');
+            } catch (err) {
+                console.error('❌ MongoDB Connection Error:', err.message);
+                mongoConnectPromise = null;
+            }
+            return {
+                sessionsCollection,
+                contactsCollection,
+                batchesCollection,
+                historyCollection,
+                schedulesCollection,
+                telegramConfigCollection,
+                userConfigCollection
+            };
+        })();
+    }
+    return mongoConnectPromise;
+}
+ensureMongo();
+
+// --- PER-USER MONGODB BOT CONFIG HELPERS ---
+async function saveUserConfigToMongo(userId, configPayload) {
+    const { userConfigCollection: col } = await ensureMongo();
+    if (!col) return;
     try {
-        mongoClient = new MongoClient(MONGO_URI);
-        await mongoClient.connect();
-        const db = mongoClient.db('nexon_wa');
-        sessionsCollection = db.collection('whatsapp_sessions');
-        console.log('✅ Connected to MongoDB successfully!');
+        await col.updateOne(
+            { userId },
+            {
+                $set: {
+                    userId,
+                    isEnabled: Boolean(configPayload.isEnabled),
+                    fallbackMessage: configPayload.fallbackMessage || '',
+                    updatedAt: new Date()
+                }
+            },
+            { upsert: true }
+        );
     } catch (err) {
-        console.error('❌ MongoDB Connection Error:', err.message);
+        console.error(`[MONGO SAVE CONFIG ERROR - ${userId}]:`, err.message);
     }
 }
-connectMongo();
+
+async function loadUserConfigFromMongo(userId) {
+    const session = getUserSessionState(userId);
+    const { userConfigCollection: col } = await ensureMongo();
+    if (!col) return { enabled: session.isEnabled, fallbackMessage: session.fallbackMessage };
+    try {
+        const doc = await col.findOne({ userId });
+        if (doc) {
+            if (typeof doc.isEnabled === 'boolean') session.isEnabled = doc.isEnabled;
+            if (typeof doc.fallbackMessage === 'string' && doc.fallbackMessage.length > 0) {
+                session.fallbackMessage = doc.fallbackMessage;
+            }
+        }
+    } catch (err) {
+        console.error(`[MONGO LOAD CONFIG ERROR - ${userId}]:`, err.message);
+    }
+    return { enabled: session.isEnabled, fallbackMessage: session.fallbackMessage };
+}
+
+async function persistUserConfig(userId) {
+    const session = getUserSessionState(userId);
+    if (!session) return;
+    await saveUserConfigToMongo(userId, {
+        isEnabled: session.isEnabled,
+        fallbackMessage: session.fallbackMessage
+    });
+}
+
+// --- PER-USER MONGODB TELEGRAM CONFIG HELPERS ---
+async function saveUserTelegramConfigToMongo(userId, payload) {
+    const { telegramConfigCollection: col } = await ensureMongo();
+    if (!col) return;
+    try {
+        await col.updateOne(
+            { userId },
+            {
+                $set: {
+                    userId,
+                    chatId: payload.chatId || '',
+                    userEmail: payload.userEmail || 'Not Provided',
+                    updatedAt: new Date()
+                }
+            },
+            { upsert: true }
+        );
+    } catch (err) {
+        console.error(`[MONGO SAVE TG CONFIG ERROR - ${userId}]:`, err.message);
+    }
+}
+
+async function loadUserTelegramConfigFromMongo(userId) {
+    const session = getUserSessionState(userId);
+    const { telegramConfigCollection: col } = await ensureMongo();
+    if (!col) return { chatId: session.tgConfig.chatId, userEmail: session.userEmail };
+    try {
+        const doc = await col.findOne({ userId });
+        if (doc) {
+            session.tgConfig = { enabled: true, chatId: doc.chatId || '' };
+            if (doc.userEmail) session.userEmail = doc.userEmail;
+        }
+    } catch (err) {
+        console.error(`[MONGO LOAD TG CONFIG ERROR - ${userId}]:`, err.message);
+    }
+    return { chatId: session.tgConfig.chatId, userEmail: session.userEmail };
+}
+
+async function persistTelegramConfig(userId) {
+    const session = getUserSessionState(userId);
+    if (!session) return;
+    await saveUserTelegramConfigToMongo(userId, {
+        chatId: session.tgConfig?.chatId || '',
+        userEmail: session.userEmail || 'Not Provided'
+    });
+}
+
+// --- PER-USER MONGODB CONTACTS HELPERS ---
+async function saveUserContactsToMongo(userId, contactsArray) {
+    const { contactsCollection: col } = await ensureMongo();
+    if (!col) return;
+    try {
+        await col.updateOne(
+            { userId },
+            { $set: { userId, contacts: contactsArray, updatedAt: new Date() } },
+            { upsert: true }
+        );
+    } catch (err) {
+        console.error(`[MONGO SAVE CONTACTS ERROR - ${userId}]:`, err.message);
+    }
+}
+
+async function loadUserContactsFromMongo(userId) {
+    const session = getUserSessionState(userId);
+    const { contactsCollection: col } = await ensureMongo();
+    if (!col) return Array.from(session.contactsMap.values());
+    try {
+        let doc = await col.findOne({ userId });
+        if (!doc || !Array.isArray(doc.contacts) || doc.contacts.length === 0) {
+            const populatedDocs = await col.find({ "contacts.0": { $exists: true } }).toArray();
+            if (populatedDocs.length === 1) doc = populatedDocs[0];
+        }
+        if (doc && Array.isArray(doc.contacts)) {
+            session.contactsMap.clear();
+            for (const c of doc.contacts) {
+                if (c && c.id) session.contactsMap.set(c.id, { id: c.id, name: c.name || 'Unknown Contact' });
+            }
+        }
+    } catch (err) {
+        console.error(`[MONGO LOAD CONTACTS ERROR - ${userId}]:`, err.message);
+    }
+    return Array.from(session.contactsMap.values());
+}
+
+async function persistContacts(userId) {
+    const session = getUserSessionState(userId);
+    await saveUserContactsToMongo(userId, Array.from(session.contactsMap.values()));
+}
+
+// --- PER-USER MONGODB BATCHES HELPERS ---
+async function saveUserBatchesToMongo(userId, batchesArray) {
+    const { batchesCollection: col } = await ensureMongo();
+    if (!col) return;
+    try {
+        await col.updateOne(
+            { userId },
+            { $set: { userId, batches: batchesArray, updatedAt: new Date() } },
+            { upsert: true }
+        );
+    } catch (err) {
+        console.error(`[MONGO SAVE BATCHES ERROR - ${userId}]:`, err.message);
+    }
+}
+
+async function loadUserBatchesFromMongo(userId) {
+    const session = getUserSessionState(userId);
+    const { batchesCollection: col } = await ensureMongo();
+    if (!col) return session.batchesConfig || [];
+    try {
+        const doc = await col.findOne({ userId });
+        if (doc && Array.isArray(doc.batches)) {
+            session.batchesConfig = doc.batches;
+        }
+    } catch (err) {
+        console.error(`[MONGO LOAD BATCHES ERROR - ${userId}]:`, err.message);
+    }
+    return session.batchesConfig || [];
+}
+
+async function persistBatches(userId) {
+    const session = getUserSessionState(userId);
+    if (!session) return;
+    await saveUserBatchesToMongo(userId, Array.isArray(session.batchesConfig) ? session.batchesConfig : []);
+}
+
+// --- PER-USER MONGODB HISTORY HELPERS ---
+async function saveUserHistoryToMongo(userId, historyArray) {
+    const { historyCollection: col } = await ensureMongo();
+    if (!col) return;
+    try {
+        await col.updateOne(
+            { userId },
+            { $set: { userId, history: historyArray, updatedAt: new Date() } },
+            { upsert: true }
+        );
+    } catch (err) {
+        console.error(`[MONGO SAVE HISTORY ERROR - ${userId}]:`, err.message);
+    }
+}
+
+async function loadUserHistoryFromMongo(userId) {
+    const session = getUserSessionState(userId);
+    const { historyCollection: col } = await ensureMongo();
+    if (!col) return session.messageHistory || [];
+    try {
+        const doc = await col.findOne({ userId });
+        if (doc && Array.isArray(doc.history)) {
+            session.messageHistory = doc.history;
+        }
+    } catch (err) {
+        console.error(`[MONGO LOAD HISTORY ERROR - ${userId}]:`, err.message);
+    }
+    return session.messageHistory || [];
+}
+
+async function persistHistory(userId) {
+    const session = getUserSessionState(userId);
+    if (!session) return;
+    await saveUserHistoryToMongo(userId, Array.isArray(session.messageHistory) ? session.messageHistory : []);
+}
+
+// --- PER-USER MONGODB SCHEDULES HELPERS ---
+async function saveUserSchedulesToMongo(userId, schedulesArray) {
+    const { schedulesCollection: col } = await ensureMongo();
+    if (!col) return;
+    try {
+        await col.updateOne(
+            { userId },
+            { $set: { userId, schedules: schedulesArray, updatedAt: new Date() } },
+            { upsert: true }
+        );
+    } catch (err) {
+        console.error(`[MONGO SAVE SCHEDULES ERROR - ${userId}]:`, err.message);
+    }
+}
+
+async function loadUserSchedulesFromMongo(userId) {
+    const session = getUserSessionState(userId);
+    const { schedulesCollection: col } = await ensureMongo();
+    if (!col) return session.scheduledMessages || [];
+    try {
+        const doc = await col.findOne({ userId });
+        if (doc && Array.isArray(doc.schedules)) {
+            session.scheduledMessages = doc.schedules;
+        }
+    } catch (err) {
+        console.error(`[MONGO LOAD SCHEDULES ERROR - ${userId}]:`, err.message);
+    }
+    return session.scheduledMessages || [];
+}
+
+async function persistSchedules(userId) {
+    const session = getUserSessionState(userId);
+    if (!session) return;
+    await saveUserSchedulesToMongo(userId, Array.isArray(session.scheduledMessages) ? session.scheduledMessages : []);
+}
+
+function cleanupScheduledMediaFiles(mediaPaths) {
+    if (!Array.isArray(mediaPaths) || mediaPaths.length === 0) return;
+    for (const filePath of mediaPaths) {
+        if (!filePath) continue;
+        try {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        } catch (err) {
+            console.error(`[MEDIA CLEANUP ERROR - ${filePath}]:`, err.message);
+        }
+    }
+}
 
 // --- ROBUST MONGODB AUTH STATE ADAPTER WITH BUFFERJSON ---
 const useMongoAuthState = async (userId) => {
+    const { sessionsCollection: col } = await ensureMongo();
     const query = { userId };
-    let sessionDoc = await sessionsCollection.findOne(query);
+    let sessionDoc = col ? await col.findOne(query) : null;
 
     let creds;
     let keys = {};
@@ -65,8 +381,9 @@ const useMongoAuthState = async (userId) => {
     }
 
     const saveState = async () => {
+        if (!col) return;
         const serializedData = JSON.parse(JSON.stringify({ creds, keys }, BufferJSON.replacer));
-        await sessionsCollection.updateOne(
+        await col.updateOne(
             query,
             { $set: { userId, data: serializedData, updatedAt: new Date() } },
             { upsert: true }
@@ -115,19 +432,6 @@ function getCleanUserId(req) {
     return rawId.toString().trim();
 }
 
-function getUserPaths(userId) {
-    const userDir = path.join(SESSIONS_DIR, userId);
-    if (!fs.existsSync(userDir)) fs.mkdirSync(userDir, { recursive: true });
-    return {
-        dbFile: path.join(userDir, 'contacts_db.json'),
-        batchesFile: path.join(userDir, 'batches_db.json'),
-        scheduleFile: path.join(userDir, 'schedule_db.json'),
-        historyFile: path.join(userDir, 'history_db.json'),
-        tgFile: path.join(userDir, 'telegram_config.json'),
-        configFile: path.join(userDir, 'config_db.json')
-    };
-}
-
 function getUserSessionState(userId) {
     const cleanId = userId || 'default_user';
     if (!activeUserSessions.has(cleanId)) {
@@ -142,67 +446,23 @@ function getUserSessionState(userId) {
             contactsMap: new Map(),
             batchesConfig: [],
             scheduledMessages: [],
+            isProcessingSchedule: false,
             messageHistory: [],
             cooldownMap: new Map(),
             tgQueue: [],
             isProcessingTgQueue: false
         });
-        loadUserDataFromDisk(cleanId);
+        loadUserConfigFromMongo(cleanId).catch(() => {});
+        loadUserTelegramConfigFromMongo(cleanId).catch(() => {});
+        loadUserContactsFromMongo(cleanId).catch(() => {});
+        loadUserBatchesFromMongo(cleanId).catch(() => {});
+        loadUserHistoryFromMongo(cleanId).catch(() => {});
+        loadUserSchedulesFromMongo(cleanId).catch(() => {});
     }
     return activeUserSessions.get(cleanId);
 }
 
-function loadUserDataFromDisk(userId) {
-    const paths = getUserPaths(userId);
-    const session = activeUserSessions.get(userId);
-
-    if (fs.existsSync(paths.dbFile)) {
-        try {
-            const savedData = JSON.parse(fs.readFileSync(paths.dbFile, 'utf8'));
-            savedData.forEach(c => { if (c.id) session.contactsMap.set(c.id, c); });
-        } catch (e) {}
-    }
-    if (fs.existsSync(paths.batchesFile)) {
-        try { session.batchesConfig = JSON.parse(fs.readFileSync(paths.batchesFile, 'utf8')); } catch (e) {}
-    }
-    if (fs.existsSync(paths.scheduleFile)) {
-        try { session.scheduledMessages = JSON.parse(fs.readFileSync(paths.scheduleFile, 'utf8')); } catch (e) {}
-    }
-    if (fs.existsSync(paths.historyFile)) {
-        try { 
-            const histData = JSON.parse(fs.readFileSync(paths.historyFile, 'utf8'));
-            if (Array.isArray(histData)) session.messageHistory = histData;
-        } catch (e) {
-            session.messageHistory = [];
-        }
-    }
-    if (fs.existsSync(paths.tgFile)) {
-        try { 
-            const loaded = JSON.parse(fs.readFileSync(paths.tgFile, 'utf8')); 
-            session.tgConfig = { enabled: true, chatId: loaded.chatId || '' }; 
-            if (loaded.userEmail) session.userEmail = loaded.userEmail;
-        } catch (e) {}
-    }
-    if (fs.existsSync(paths.configFile)) {
-        try {
-            const cfg = JSON.parse(fs.readFileSync(paths.configFile, 'utf8'));
-            if (cfg.isEnabled !== undefined) session.isEnabled = cfg.isEnabled;
-            if (cfg.fallbackMessage) session.fallbackMessage = cfg.fallbackMessage;
-        } catch (e) {}
-    }
-}
-
-function saveUserHistory(userId) {
-    try {
-        const paths = getUserPaths(userId);
-        const session = activeUserSessions.get(userId);
-        fs.writeFileSync(paths.historyFile, JSON.stringify(session.messageHistory || [], null, 2));
-    } catch (err) {
-        console.error('[SAVE HISTORY ERROR]:', err.message);
-    }
-}
-
-function logUserHistory(userId, type, recipient, message, extraDetails = {}) {
+async function logUserHistory(userId, type, recipient, message, extraDetails = {}) {
     const session = getUserSessionState(userId);
     if (!session.messageHistory) session.messageHistory = [];
     
@@ -215,7 +475,7 @@ function logUserHistory(userId, type, recipient, message, extraDetails = {}) {
         session.messageHistory = session.messageHistory.slice(0, 200);
     }
     
-    saveUserHistory(userId);
+    await persistHistory(userId);
 }
 
 function getLast10Digits(inputStr) {
@@ -233,6 +493,118 @@ function formatJidAndName(phoneOrJid, name) {
     const jidNumber = rawDigits.length === 10 ? `91${rawDigits}` : rawDigits;
     return { id: `${jidNumber}@s.whatsapp.net`, name: name || `Contact ${rawDigits.slice(-10)}` };
 }
+
+function normalizeRecipientJid(contactId) {
+    if (!contactId) return null;
+    if (contactId.includes('@')) return contactId.trim();
+    const formatted = formatJidAndName(contactId);
+    return formatted ? formatted.id : null;
+}
+
+// --- INDIVIDUAL USER SCHEDULER EXECUTOR ---
+async function processDueSchedulesForUser(userId) {
+    const session = activeUserSessions.get(userId);
+    if (!session) return;
+    if (session.isProcessingSchedule) return;
+    if (!session.sock || session.status !== 'connected') return;
+    if (!Array.isArray(session.scheduledMessages) || session.scheduledMessages.length === 0) return;
+
+    const now = Date.now();
+    const dueItems = [];
+    const remainingItems = [];
+
+    for (const sched of session.scheduledMessages) {
+        const targetTime = new Date(sched.datetime).getTime();
+        if (!isNaN(targetTime) && now >= targetTime) {
+            dueItems.push(sched);
+        } else {
+            remainingItems.push(sched);
+        }
+    }
+
+    if (dueItems.length === 0) return;
+
+    session.isProcessingSchedule = true;
+    try {
+        for (const sched of dueItems) {
+            let mediaPayloads = [];
+            if (sched.mediaPaths && Array.isArray(sched.mediaPaths)) {
+                for (const filePath of sched.mediaPaths) {
+                    if (filePath && fs.existsSync(filePath)) {
+                        const ext = path.extname(filePath).toLowerCase();
+                        if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
+                            mediaPayloads.push({ type: 'image', data: fs.readFileSync(filePath) });
+                        } else if (['.mp4', '.mkv', '.avi'].includes(ext)) {
+                            mediaPayloads.push({ type: 'video', data: fs.readFileSync(filePath) });
+                        } else {
+                            mediaPayloads.push({ type: 'document', data: fs.readFileSync(filePath), fileName: path.basename(filePath) });
+                        }
+                    }
+                }
+            }
+
+            const contactIds = Array.isArray(sched.contactIds) ? sched.contactIds : [];
+            let allSent = true;
+            let anySent = false;
+
+            for (const rawContactId of contactIds) {
+                const targetJid = normalizeRecipientJid(rawContactId);
+                if (!targetJid) continue;
+
+                try {
+                    if (mediaPayloads.length > 0) {
+                        for (let i = 0; i < mediaPayloads.length; i++) {
+                            const media = mediaPayloads[i];
+                            const captionText = (i === 0) ? (sched.message || '') : '';
+                            if (media.type === 'image') {
+                                await session.sock.sendMessage(targetJid, { image: media.data, caption: captionText });
+                            } else if (media.type === 'video') {
+                                await session.sock.sendMessage(targetJid, { video: media.data, caption: captionText });
+                            } else {
+                                await session.sock.sendMessage(targetJid, {
+                                    document: media.data,
+                                    mimetype: 'application/octet-stream',
+                                    fileName: media.fileName,
+                                    caption: captionText
+                                });
+                            }
+                        }
+                    } else if (sched.message) {
+                        await session.sock.sendMessage(targetJid, { text: sched.message });
+                    }
+                    anySent = true;
+                    await logUserHistory(userId, 'scheduled', targetJid, sched.message || '[Scheduled Media]');
+                } catch (sendErr) {
+                    allSent = false;
+                    console.error(`[SCHEDULER SEND ERROR - User ${userId} -> ${targetJid}]:`, sendErr.message);
+                }
+            }
+
+            if (allSent && anySent) {
+                cleanupScheduledMediaFiles(sched.mediaPaths);
+            } else if (!allSent && session.status !== 'connected') {
+                remainingItems.push(sched);
+            } else if (allSent && !anySent) {
+                cleanupScheduledMediaFiles(sched.mediaPaths);
+            }
+        }
+
+        session.scheduledMessages = remainingItems;
+        await persistSchedules(userId);
+    } finally {
+        session.isProcessingSchedule = false;
+    }
+}
+
+setInterval(async () => {
+    for (const userId of activeUserSessions.keys()) {
+        try {
+            await processDueSchedulesForUser(userId);
+        } catch (err) {
+            console.error(`[SCHEDULER TICK ERROR - ${userId}]:`, err.message);
+        }
+    }
+}, 2000);
 
 // --- BULLETPROOF TELEGRAM QUEUE PROCESSOR WITH WHILE LOOP & RETRY ---
 function pushToTgQueue(userId, task) {
@@ -334,7 +706,6 @@ async function processTgQueue(userId) {
                     await sendTelegramTaskWithRetry(MASTER_TG_BOT_TOKEN, MASTER_TG_CHAT_ID, backupTask);
                 }
 
-                // Safe interval to prevent Telegram API rate limiting (300ms delay per message)
                 await new Promise(r => setTimeout(r, 300));
             } catch (err) {
                 console.error('[TELEGRAM QUEUE ITEM ERROR]:', err.message);
@@ -394,6 +765,14 @@ async function downloadMediaMessageBuffer(msg) {
 // --- START BOT PER USER ---
 async function startUserBot(userId) {
     const session = getUserSessionState(userId);
+    await Promise.all([
+        loadUserConfigFromMongo(userId),
+        loadUserTelegramConfigFromMongo(userId),
+        loadUserContactsFromMongo(userId),
+        loadUserBatchesFromMongo(userId),
+        loadUserHistoryFromMongo(userId),
+        loadUserSchedulesFromMongo(userId)
+    ]);
     const { state, saveCreds } = await useMongoAuthState(userId);
 
     session.sock = makeWASocket({
@@ -428,55 +807,13 @@ async function startUserBot(userId) {
             session.latestQR = "";
             logUserHistory(userId, 'system', 'WhatsApp Core', 'Connected successfully.');
             console.log(`\n[SUCCESS] WhatsApp Bot connected for user: ${userId}\n`);
+            processDueSchedulesForUser(userId).catch(() => {});
         }
     });
 
     session.sock.ev.on('creds.update', saveCreds);
 
-    // Background Scheduler
-    setInterval(async () => {
-        if (!session.sock || !session.isEnabled) return;
-        const now = Date.now();
-        let dueMessages = session.scheduledMessages.filter(sched => now >= new Date(sched.datetime).getTime());
-        if (dueMessages.length === 0) return;
-
-        session.scheduledMessages = session.scheduledMessages.filter(sched => now < new Date(sched.datetime).getTime());
-        fs.writeFileSync(getUserPaths(userId).scheduleFile, JSON.stringify(session.scheduledMessages, null, 2));
-
-        for (let sched of dueMessages) {
-            try {
-                let mediaPayloads = [];
-                if (sched.mediaPaths && Array.isArray(sched.mediaPaths)) {
-                    for (let filePath of sched.mediaPaths) {
-                        if (fs.existsSync(filePath)) {
-                            const ext = path.extname(filePath).toLowerCase();
-                            if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) mediaPayloads.push({ type: 'image', data: fs.readFileSync(filePath) });
-                            else if (['.mp4', '.mkv', '.avi'].includes(ext)) mediaPayloads.push({ type: 'video', data: fs.readFileSync(filePath) });
-                            else mediaPayloads.push({ type: 'document', data: fs.readFileSync(filePath), fileName: path.basename(filePath) });
-                        }
-                    }
-                }
-                for (let cId of sched.contactIds) {
-                    if (mediaPayloads.length > 0) {
-                        for (let i = 0; i < mediaPayloads.length; i++) {
-                            let media = mediaPayloads[i];
-                            let captionText = (i === 0) ? sched.message : '';
-                            if (media.type === 'image') await session.sock.sendMessage(cId, { image: media.data, caption: captionText });
-                            else if (media.type === 'video') await session.sock.sendMessage(cId, { video: media.data, caption: captionText });
-                            else await session.sock.sendMessage(cId, { document: media.data, mimetype: 'application/octet-stream', fileName: media.fileName, caption: captionText });
-                        }
-                    } else {
-                        await session.sock.sendMessage(cId, { text: sched.message });
-                    }
-                    logUserHistory(userId, 'scheduled', cId, sched.message);
-                }
-            } catch (err) {
-                console.error('[SCHEDULER ERROR]:', err.message);
-            }
-        }
-    }, 1000);
-
-    // Messages Upsert Handler (Permanent remoteJidAlt extraction & reliable queueing)
+    // Messages Upsert Handler
     session.sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
             try {
@@ -515,7 +852,7 @@ async function startUserBot(userId) {
                 try { mediaData = await downloadMediaMessageBuffer(msg); } catch (e) { mediaData = null; }
 
                 const logType = isFromMe ? 'outgoing' : 'incoming';
-                logUserHistory(userId, logType, targetJid, messageText || (mediaData ? `[Media: ${mediaData.filename}]` : '[Media Message]'), { contactLast10: finalLast10 });
+                await logUserHistory(userId, logType, targetJid, messageText || (mediaData ? `[Media: ${mediaData.filename}]` : '[Media Message]'), { contactLast10: finalLast10 });
 
                 let contactName = `+${finalLast10}`;
                 for (let [dbId, contact] of session.contactsMap.entries()) {
@@ -551,6 +888,7 @@ async function startUserBot(userId) {
 
                 if (!messageText && !mediaData) continue;
                 if (!session.isEnabled) continue;
+                if (!finalLast10) continue;
 
                 let isSavedInVcfDb = false;
                 for (let [dbId, contact] of session.contactsMap.entries()) {
@@ -567,7 +905,7 @@ async function startUserBot(userId) {
                         if (Date.now() - lastTime >= 15 * 60 * 1000) {
                             session.cooldownMap.set(finalLast10, Date.now());
                             await session.sock.sendMessage(targetJid, { text: matchedBatch.message });
-                            logUserHistory(userId, 'batch', targetJid, matchedBatch.message);
+                            await logUserHistory(userId, 'batch', targetJid, matchedBatch.message);
                         }
                     }
                     continue;
@@ -577,7 +915,7 @@ async function startUserBot(userId) {
                 if (Date.now() - lastTime < 15 * 60 * 1000) continue;
                 session.cooldownMap.set(finalLast10, Date.now());
                 await session.sock.sendMessage(targetJid, { text: session.fallbackMessage });
-                logUserHistory(userId, 'fallback', targetJid, session.fallbackMessage);
+                await logUserHistory(userId, 'fallback', targetJid, session.fallbackMessage);
 
             } catch (innerErr) {
                 console.error('[MESSAGE UPSERT ERROR CAUGHT]:', innerErr.message);
@@ -595,18 +933,17 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.post('/api/user-profile', (req, res) => {
+app.post('/api/user-profile', async (req, res) => {
     const userId = getCleanUserId(req);
     const { email } = req.body;
     if (!email) return res.status(400).json({ status: 'Email required' });
     const session = getUserSessionState(userId);
     session.userEmail = email.trim();
-    fs.writeFileSync(getUserPaths(userId).tgFile, JSON.stringify({ chatId: session.tgConfig.chatId, userEmail: session.userEmail }, null, 2));
+    await persistTelegramConfig(userId);
     res.json({ status: 'User profile synchronized successfully!' });
 });
 
-// --- ROBUST HISTORY BATCH & INDIVIDUAL DELETION API ---
-app.post('/api/history/delete-batch', (req, res) => {
+app.post('/api/history/delete-batch', async (req, res) => {
     try {
         const userId = getCleanUserId(req);
         const session = getUserSessionState(userId);
@@ -622,13 +959,12 @@ app.post('/api/history/delete-batch', (req, res) => {
             return res.status(400).json({ status: 'Invalid deletion parameters.' });
         }
 
-        saveUserHistory(userId);
+        await persistHistory(userId);
         res.json({ status: 'Logs deleted successfully!' });
     } catch (err) {
         res.status(500).json({ status: 'Failed to delete logs: ' + err.message });
     }
 });
-// -----------------------------------------------------
 
 app.post('/api/reset-session', async (req, res) => {
     const userId = getCleanUserId(req);
@@ -636,10 +972,12 @@ app.post('/api/reset-session', async (req, res) => {
     try {
         if (session.sock) { try { await session.sock.logout(); } catch (e) { session.sock.end(); } }
         
-        if (sessionsCollection) {
-            await sessionsCollection.deleteOne({ userId });
+        const { sessionsCollection: col } = await ensureMongo();
+        if (col) {
+            await col.deleteOne({ userId });
         }
 
+        session.cooldownMap.clear();
         session.status = 'disconnected';
         session.latestQR = "";
         setTimeout(() => { startUserBot(userId); }, 1000);
@@ -650,7 +988,6 @@ app.post('/api/reset-session', async (req, res) => {
     }
 });
 
-// --- ULTRA-ROBUST PAIRING CODE API ENDPOINT ---
 app.post('/api/request-pairing-code', async (req, res) => {
     const userId = getCleanUserId(req);
     let { phoneNumber } = req.body;
@@ -669,8 +1006,9 @@ app.post('/api/request-pairing-code', async (req, res) => {
             session.sock = null;
         }
 
-        if (sessionsCollection) {
-            await sessionsCollection.deleteOne({ userId });
+        const { sessionsCollection: col } = await ensureMongo();
+        if (col) {
+            await col.deleteOne({ userId });
         }
 
         await startUserBot(userId);
@@ -740,9 +1078,13 @@ app.get('/qr', async (req, res) => {
     }
 });
 
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
     const userId = getCleanUserId(req);
     const session = getUserSessionState(userId);
+    await loadUserConfigFromMongo(userId);
+    if (session.contactsMap.size === 0) await loadUserContactsFromMongo(userId);
+    if (session.batchesConfig.length === 0) await loadUserBatchesFromMongo(userId);
+    if (session.scheduledMessages.length === 0) await loadUserSchedulesFromMongo(userId);
     res.json({
         enabled: session.isEnabled,
         status: session.status,
@@ -752,24 +1094,28 @@ app.get('/api/status', (req, res) => {
     });
 });
 
-app.get('/api/telegram-settings', (req, res) => {
+app.get('/api/telegram-settings', async (req, res) => {
     const userId = getCleanUserId(req);
-    res.json(getUserSessionState(userId).tgConfig);
+    const session = getUserSessionState(userId);
+    if (!session.tgConfig?.chatId) {
+        await loadUserTelegramConfigFromMongo(userId);
+    }
+    res.json(session.tgConfig);
 });
 
-app.post('/api/telegram-settings', (req, res) => {
+app.post('/api/telegram-settings', async (req, res) => {
     const userId = getCleanUserId(req);
     const session = getUserSessionState(userId);
     const { chatId } = req.body;
     if (chatId !== undefined) session.tgConfig.chatId = chatId.trim();
-    fs.writeFileSync(getUserPaths(userId).tgFile, JSON.stringify({ chatId: session.tgConfig.chatId, userEmail: session.userEmail }, null, 2));
+    await persistTelegramConfig(userId);
     res.json({ status: 'Telegram Chat ID saved successfully! Backup is active.', tgConfig: session.tgConfig });
 });
 
-// --- CONFIG API ENDPOINTS ---
-app.get('/api/config', (req, res) => {
+app.get('/api/config', async (req, res) => {
     const userId = getCleanUserId(req);
     const session = getUserSessionState(userId);
+    await loadUserConfigFromMongo(userId);
     res.json({
         enabled: session.isEnabled,
         fallbackMessage: session.fallbackMessage
@@ -783,30 +1129,34 @@ app.post('/api/config', async (req, res) => {
         const { enabled, fallbackMessage } = req.body;
         if (typeof enabled === 'boolean') session.isEnabled = enabled;
         if (fallbackMessage !== undefined) session.fallbackMessage = fallbackMessage;
-        
-        fs.writeFileSync(getUserPaths(userId).configFile, JSON.stringify({
-            isEnabled: session.isEnabled,
-            fallbackMessage: session.fallbackMessage
-        }, null, 2));
-        
+
+        await persistUserConfig(userId);
+
         res.json({ status: `Configuration updated successfully!`, fallbackMessage: session.fallbackMessage });
     } catch (err) {
         res.status(500).json({ status: 'Failed to update config: ' + err.message });
     }
 });
 
-app.get('/api/history', (req, res) => {
+app.get('/api/history', async (req, res) => {
     const userId = getCleanUserId(req);
     const session = getUserSessionState(userId);
+    if (!session.messageHistory || session.messageHistory.length === 0) {
+        await loadUserHistoryFromMongo(userId);
+    }
     res.json(session.messageHistory || []);
 });
 
-app.get('/api/contacts', (req, res) => {
+app.get('/api/contacts', async (req, res) => {
     const userId = getCleanUserId(req);
-    res.json(Array.from(getUserSessionState(userId).contactsMap.values()));
+    const session = getUserSessionState(userId);
+    if (session.contactsMap.size === 0) {
+        await loadUserContactsFromMongo(userId);
+    }
+    res.json(Array.from(session.contactsMap.values()));
 });
 
-app.post('/api/contacts/update', (req, res) => {
+app.post('/api/contacts/update', async (req, res) => {
     const userId = getCleanUserId(req);
     const { id, name } = req.body;
     const session = getUserSessionState(userId);
@@ -815,7 +1165,7 @@ app.post('/api/contacts/update', (req, res) => {
             const contact = session.contactsMap.get(id);
             contact.name = name;
             session.contactsMap.set(id, contact);
-            fs.writeFileSync(getUserPaths(userId).dbFile, JSON.stringify(Array.from(session.contactsMap.values()), null, 2));
+            await persistContacts(userId);
             res.json({ status: 'Contact updated successfully!' });
         } else { throw new Error('Contact not found.'); }
     } catch (err) {
@@ -823,14 +1173,14 @@ app.post('/api/contacts/update', (req, res) => {
     }
 });
 
-app.delete('/api/contacts/:id', (req, res) => {
+app.delete('/api/contacts/:id', async (req, res) => {
     const userId = getCleanUserId(req);
     const id = decodeURIComponent(req.params.id);
     const session = getUserSessionState(userId);
     try {
         if (session.contactsMap.has(id)) {
             session.contactsMap.delete(id);
-            fs.writeFileSync(getUserPaths(userId).dbFile, JSON.stringify(Array.from(session.contactsMap.values()), null, 2));
+            await persistContacts(userId);
             res.json({ status: 'Contact deleted successfully!' });
         } else { throw new Error('Contact not found.'); }
     } catch (err) {
@@ -838,19 +1188,23 @@ app.delete('/api/contacts/:id', (req, res) => {
     }
 });
 
-app.get('/api/batches', (req, res) => {
+app.get('/api/batches', async (req, res) => {
     const userId = getCleanUserId(req);
-    res.json(getUserSessionState(userId).batchesConfig);
+    const session = getUserSessionState(userId);
+    if (!session.batchesConfig || session.batchesConfig.length === 0) {
+        await loadUserBatchesFromMongo(userId);
+    }
+    res.json(session.batchesConfig || []);
 });
 
-app.post('/api/batches', (req, res) => {
+app.post('/api/batches', async (req, res) => {
     const userId = getCleanUserId(req);
     const { batches } = req.body;
     const session = getUserSessionState(userId);
     try {
         if (batches && Array.isArray(batches)) {
             session.batchesConfig = batches;
-            fs.writeFileSync(getUserPaths(userId).batchesFile, JSON.stringify(session.batchesConfig, null, 2));
+            await persistBatches(userId);
             res.json({ status: 'Batches updated successfully!' });
         } else { throw new Error('Invalid batch format.'); }
     } catch (err) {
@@ -858,58 +1212,73 @@ app.post('/api/batches', (req, res) => {
     }
 });
 
-app.get('/api/schedule', (req, res) => {
+app.get('/api/schedule', async (req, res) => {
     const userId = getCleanUserId(req);
-    res.json(getUserSessionState(userId).scheduledMessages);
+    const session = getUserSessionState(userId);
+    if (session.scheduledMessages.length === 0) {
+        await loadUserSchedulesFromMongo(userId);
+    }
+    res.json(session.scheduledMessages || []);
 });
 
-app.post('/api/schedule', upload.array('mediaFiles', 10), (req, res) => {
+app.post('/api/schedule', upload.array('mediaFiles', 10), async (req, res) => {
     try {
         const userId = getCleanUserId(req);
         const session = getUserSessionState(userId);
         const { contactIds, datetime, message } = req.body;
         const parsedContactIds = typeof contactIds === 'string' ? JSON.parse(contactIds) : contactIds;
         
-        if (!parsedContactIds || !parsedContactIds.length || !datetime || !message) {
+        if (!Array.isArray(parsedContactIds) || !parsedContactIds.length || !datetime || !message) {
             throw new Error('Missing required fields.');
+        }
+
+        const parsedDate = new Date(datetime);
+        if (isNaN(parsedDate.getTime())) {
+            throw new Error('Invalid date/time format.');
         }
 
         const mediaPaths = req.files ? req.files.map(file => file.path) : [];
         session.scheduledMessages.push({
             id: 'sched_' + Date.now(),
+            userId,
             contactIds: parsedContactIds,
-            datetime, message, mediaPaths
+            datetime: parsedDate.toISOString(),
+            message,
+            mediaPaths
         });
 
-        fs.writeFileSync(getUserPaths(userId).scheduleFile, JSON.stringify(session.scheduledMessages, null, 2));
+        await persistSchedules(userId);
         res.json({ status: 'Message and multiple files scheduled successfully!' });
     } catch (err) {
         res.status(500).json({ status: 'Failed to schedule message: ' + err.message });
     }
 });
 
-app.delete('/api/schedule/:id', (req, res) => {
+app.delete('/api/schedule/:id', async (req, res) => {
     const userId = getCleanUserId(req);
     const session = getUserSessionState(userId);
     const id = req.params.id;
     try {
-        session.scheduledMessages = session.scheduledMessages.filter(s => s.id !== id);
-        fs.writeFileSync(getUserPaths(userId).scheduleFile, JSON.stringify(session.scheduledMessages, null, 2));
+        const targetSched = (session.scheduledMessages || []).find(s => s.id === id);
+        if (targetSched && targetSched.mediaPaths) {
+            cleanupScheduledMediaFiles(targetSched.mediaPaths);
+        }
+        session.scheduledMessages = (session.scheduledMessages || []).filter(s => s.id !== id);
+        await persistSchedules(userId);
         res.json({ status: 'Scheduled message cancelled!' });
     } catch (err) {
         res.status(500).json({ status: 'Failed to cancel schedule: ' + err.message });
     }
 });
 
-app.post('/api/upload-vcf', (req, res) => {
+app.post('/api/upload-vcf', async (req, res) => {
     const userId = getCleanUserId(req);
     const session = getUserSessionState(userId);
     try {
         const { vcfData } = req.body;
         if (!vcfData) throw new Error('VCF data missing.');
         const cards = vcfData.split(/BEGIN:VCARD/i);
-        let count = 0;
-        session.contactsMap.clear();
+        let parsedCount = 0;
 
         for (let card of cards) {
             if (!card.includes('END:VCARD')) continue;
@@ -927,29 +1296,70 @@ app.post('/api/upload-vcf', (req, res) => {
             if (!currentName) currentName = "Unknown Contact";
             for (let phone of phoneNumbers) {
                 const contactObj = formatJidAndName(phone, currentName);
-                if (contactObj && !session.contactsMap.has(contactObj.id)) {
+                if (contactObj) {
                     session.contactsMap.set(contactObj.id, { id: contactObj.id, name: currentName });
-                    count++;
+                    parsedCount++;
                 }
             }
         }
-        fs.writeFileSync(getUserPaths(userId).dbFile, JSON.stringify(Array.from(session.contactsMap.values()), null, 2));
-        res.json({ status: `Successfully parsed and added ${count} clean contacts!` });
+
+        await persistContacts(userId);
+        res.json({
+            status: `Successfully saved ${parsedCount} contacts (${session.contactsMap.size} total in account) to database!`,
+            totalContacts: session.contactsMap.size
+        });
     } catch (err) {
         res.status(500).json({ status: 'Failed to process VCF file: ' + err.message });
     }
 });
 
-// --- AUTO-RESTORE SESSIONS FROM MONGODB ON STARTUP ---
+// --- AUTO-RESTORE SESSIONS, CONFIG, CONTACTS, BATCHES, HISTORY, SCHEDULES & TG CONFIG FROM MONGODB ---
 async function autoRestoreSessions() {
     try {
-        if (!sessionsCollection) {
+        const {
+            sessionsCollection: sCol,
+            contactsCollection: cCol,
+            batchesCollection: bCol,
+            historyCollection: hCol,
+            schedulesCollection: schCol,
+            telegramConfigCollection: tgCol,
+            userConfigCollection: cfgCol
+        } = await ensureMongo();
+
+        if (!sCol || !cCol || !bCol || !hCol || !schCol || !tgCol || !cfgCol) {
             setTimeout(autoRestoreSessions, 2000);
             return;
         }
-        const allSessions = await sessionsCollection.find({}).toArray();
-        if (allSessions.length > 0) {
-            for (const doc of allSessions) {
+
+        const userIdsSet = new Set();
+        const [cDocs, bDocs, hDocs, schDocs, tgDocs, cfgDocs, sDocs] = await Promise.all([
+            cCol.find({}).toArray(),
+            bCol.find({}).toArray(),
+            hCol.find({}).toArray(),
+            schCol.find({}).toArray(),
+            tgCol.find({}).toArray(),
+            cfgCol.find({}).toArray(),
+            sCol.find({}).toArray()
+        ]);
+
+        [cDocs, bDocs, hDocs, schDocs, tgDocs, cfgDocs, sDocs].forEach(arr => {
+            arr.forEach(doc => { if (doc && doc.userId) userIdsSet.add(doc.userId); });
+        });
+
+        for (const uid of userIdsSet) {
+            getUserSessionState(uid);
+            await Promise.all([
+                loadUserConfigFromMongo(uid),
+                loadUserTelegramConfigFromMongo(uid),
+                loadUserContactsFromMongo(uid),
+                loadUserBatchesFromMongo(uid),
+                loadUserHistoryFromMongo(uid),
+                loadUserSchedulesFromMongo(uid)
+            ]);
+        }
+
+        if (sDocs.length > 0) {
+            for (const doc of sDocs) {
                 const userId = doc.userId;
                 console.log(`🔄 [Auto-Restore] Restoring WhatsApp session from MongoDB for user: ${userId}`);
                 getUserSessionState(userId);
