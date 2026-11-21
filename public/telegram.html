@@ -142,6 +142,31 @@
             border-top: 2px solid transparent; border-radius: 50%;
             animation: spin 0.8s linear infinite; display: inline-block;
         }
+
+        /* Mobile Device Adaptation */
+        @media (max-width: 640px), (pointer: coarse) {
+            body {
+                padding: 16px 12px 44px;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .wrapper {
+                width: 100%;
+            }
+            .panel {
+                padding: 20px 16px;
+                border-radius: 16px;
+            }
+            h2 {
+                font-size: 1.3rem;
+            }
+            button, a.btn, a.back-btn, a.back-link, input {
+                min-height: 44px;
+            }
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>

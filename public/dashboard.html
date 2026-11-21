@@ -611,7 +611,7 @@
         /* Section Title */
         .section-heading {
             margin-top: 30px;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -631,6 +631,47 @@
         .section-heading span {
             font-size: 0.78rem;
             color: var(--text-secondary);
+        }
+
+        .quick-jump-strip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: rgba(12, 16, 27, 0.72);
+            border: 1px solid var(--border-subtle);
+            animation: slideUpFade 0.82s var(--ease-smooth) 0.2s both;
+        }
+
+        .quick-jump-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-right: 4px;
+        }
+
+        .quick-jump-chip {
+            font-size: 0.74rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: rgba(15, 21, 36, 0.9);
+            border: 1px solid var(--border-subtle);
+            padding: 5px 11px;
+            border-radius: 9px;
+            cursor: pointer;
+            transition: all 0.22s var(--ease-smooth);
+        }
+
+        .quick-jump-chip:hover {
+            color: #ffffff;
+            border-color: var(--accent-indigo-bright);
+            background: rgba(99, 102, 241, 0.18);
+            transform: translateY(-1px);
         }
 
         /* Modules Grid */
@@ -682,6 +723,11 @@
 
         .module-card.hidden-by-filter {
             display: none;
+        }
+
+        .module-card.pulse-highlight {
+            border-color: var(--accent-emerald-bright);
+            box-shadow: var(--shadow-deck), var(--shadow-emerald);
         }
 
         .module-header-row {
@@ -1006,14 +1052,24 @@
             <span>Select a module to configure or monitor</span>
         </div>
 
+        <div class="quick-jump-strip">
+            <span class="quick-jump-label">Quick Jump:</span>
+            <button type="button" class="quick-jump-chip" onclick="highlightModuleCard('vcf.html')">1. Contacts & VCF Upload</button>
+            <button type="button" class="quick-jump-chip" onclick="highlightModuleCard('fallback.html')">2. Auto-Reply for New Numbers</button>
+            <button type="button" class="quick-jump-chip" onclick="highlightModuleCard('scheduler.html')">3. Schedule Messages & Wishes</button>
+            <button type="button" class="quick-jump-chip" onclick="highlightModuleCard('batches.html')">4. Contact Groups & Replies</button>
+            <button type="button" class="quick-jump-chip" onclick="highlightModuleCard('telegram.html')">5. Real-Time Chat Backup</button>
+            <button type="button" class="quick-jump-chip" onclick="highlightModuleCard('analytics.html')">6. Message History & Logs</button>
+        </div>
+
         <main class="modules-grid" id="modules-grid">
             <a href="vcf.html" class="nav-card module-card" data-category="data">
                 <div>
                     <div class="module-header-row">
-                        <h3 class="module-title">📂 1. VCF Contact Ingestion</h3>
+                        <h3 class="module-title">📂 1. Contacts & VCF Upload</h3>
                         <span class="module-tag" id="pill-contacts">0 Contacts</span>
                     </div>
-                    <p class="module-desc">Upload vCard files with visual file pickers, parse contacts cleanly, and manage persistent account records.</p>
+                    <p class="module-desc">Upload VCF contact files, browse saved numbers, and update or remove contacts easily.</p>
                 </div>
                 <div class="module-footer-row">
                     <span>Module: vcf.html</span>
@@ -1024,10 +1080,10 @@
             <a href="fallback.html" class="nav-card module-card" data-category="automation">
                 <div>
                     <div class="module-header-row">
-                        <h3 class="module-title">💬 2. Unknown Fallback Settings</h3>
+                        <h3 class="module-title">💬 2. Auto-Reply for New Numbers</h3>
                         <span class="module-tag">Auto-Reply</span>
                     </div>
-                    <p class="module-desc">Configure custom auto-reply templates for non-VCF numbers with strict anti-spam cooldown protection rules.</p>
+                    <p class="module-desc">Set automatic replies for unknown numbers with built-in repeat-reply protection.</p>
                 </div>
                 <div class="module-footer-row">
                     <span>Module: fallback.html</span>
@@ -1038,10 +1094,10 @@
             <a href="scheduler.html" class="nav-card module-card" data-category="automation">
                 <div>
                     <div class="module-header-row">
-                        <h3 class="module-title">⏰ 3. Message Scheduler & Media</h3>
+                        <h3 class="module-title">⏰ 3. Schedule Messages & Wishes</h3>
                         <span class="module-tag" id="pill-scheduled">0 Queued</span>
                     </div>
-                    <p class="module-desc">Schedule dispatches to single or multiple contacts with direct computer file browser attachments and multi-format support.</p>
+                    <p class="module-desc">Schedule messages with files or plan exact time slots for special wishes and reminders.</p>
                 </div>
                 <div class="module-footer-row">
                     <span>Module: scheduler.html</span>
@@ -1052,10 +1108,10 @@
             <a href="batches.html" class="nav-card module-card" data-category="automation">
                 <div>
                     <div class="module-header-row">
-                        <h3 class="module-title">👥 4. Custom Message Batches</h3>
+                        <h3 class="module-title">👥 4. Contact Groups & Replies</h3>
                         <span class="module-tag" id="pill-batches">0 Batches</span>
                     </div>
-                    <p class="module-desc">Group contacts into custom batches using live search filters and assign specialized automated responses instantly.</p>
+                    <p class="module-desc">Organize contacts into groups and send custom automated replies to specific people.</p>
                 </div>
                 <div class="module-footer-row">
                     <span>Module: batches.html</span>
@@ -1066,10 +1122,10 @@
             <a href="telegram.html" class="nav-card module-card" data-category="data">
                 <div>
                     <div class="module-header-row">
-                        <h3 class="module-title">🛡️ 5. Telegram Anti-Revoke Logger</h3>
+                        <h3 class="module-title">🛡️ 5. Real-Time Chat Backup</h3>
                         <span class="module-tag">Live Mirror</span>
                     </div>
-                    <p class="module-desc">Configure independent Telegram chat IDs and manage real-time incoming/outgoing message & media logging.</p>
+                    <p class="module-desc">Connect your Telegram Chat ID to forward incoming and outgoing chats and media live.</p>
                 </div>
                 <div class="module-footer-row">
                     <span>Module: telegram.html</span>
@@ -1080,10 +1136,10 @@
             <a href="analytics.html" class="nav-card module-card" data-category="data">
                 <div>
                     <div class="module-header-row">
-                        <h3 class="module-title">📊 6. Live Analytics & History</h3>
+                        <h3 class="module-title">📊 6. Message History & Logs</h3>
                         <span class="module-tag">Activity Feed</span>
                     </div>
-                    <p class="module-desc">Track live dispatches, automated batch responses, and fallback interactions in a comprehensive real-time activity feed.</p>
+                    <p class="module-desc">Check sent messages, auto-replies, scheduled dispatches, and recent chat activity.</p>
                 </div>
                 <div class="module-footer-row">
                     <span>Module: analytics.html</span>
@@ -1160,6 +1216,15 @@
                 toast.style.transition = 'all 0.25s ease';
                 setTimeout(() => toast.remove(), 260);
             }, 3200);
+        }
+
+        function highlightModuleCard(moduleFileName) {
+            const target = document.querySelector(`.module-card[href^="${moduleFileName}"]`);
+            if (!target) return;
+            target.classList.remove('hidden-by-filter');
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('pulse-highlight');
+            setTimeout(() => target.classList.remove('pulse-highlight'), 1400);
         }
 
         function filterModules(category, btnEl) {

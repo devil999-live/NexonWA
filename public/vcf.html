@@ -173,6 +173,35 @@
             color: #fca5a5; width: 32px; height: 32px; border-radius: 8px;
             font-size: 1rem; cursor: pointer; font-weight: 700;
         }
+
+        /* Mobile Device Adaptation */
+        @media (max-width: 640px), (pointer: coarse) {
+            body {
+                padding: 16px 12px 44px;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .wrapper {
+                width: 100%;
+            }
+            .panel {
+                padding: 20px 16px;
+                border-radius: 16px;
+            }
+            h2 {
+                font-size: 1.3rem;
+            }
+            .db-contact-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+            .db-contact-row input[type="text"] {
+                width: 100% !important;
+            }
+            button, a.btn, a.back-btn, a.back-link, input, select, textarea {
+                min-height: 44px;
+            }
+        }
     </style>
 </head>
 <body>

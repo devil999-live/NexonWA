@@ -2,189 +2,304 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexon WhatsApp Automation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEXON // Multi-User Gateway</title>
     <style>
         :root {
-            --bg-base: #090d16;
-            --metallic-panel: linear-gradient(135deg, rgba(20, 27, 45, 0.95) 0%, rgba(10, 14, 26, 0.98) 100%);
-            --metallic-border: linear-gradient(135deg, rgba(56, 189, 248, 0.6), rgba(30, 41, 59, 0.8), rgba(56, 189, 248, 0.2));
-            --neon-cyan: #38bdf8;
-            --neon-emerald: #34d399;
-            --neon-rose: #f43f5e;
-            --neon-amber: #fbbf24;
-            --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
+            --bg-obsidian: #06080e;
+            --bg-card: rgba(15, 21, 36, 0.92);
+            --border-subtle: rgba(148, 163, 184, 0.14);
+            --border-indigo: rgba(99, 102, 241, 0.48);
+            --accent-indigo: #6366f1;
+            --accent-indigo-bright: #818cf8;
+            --accent-emerald: #10b981;
+            --accent-emerald-bright: #34d399;
+            --accent-crimson: #ef4444;
+            --accent-crimson-bright: #f43f5e;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --shadow-deck: 0 24px 60px rgba(0, 0, 0, 0.78);
+            --shadow-indigo: 0 0 28px rgba(99, 102, 241, 0.25);
+            --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace, sans-serif; }
-        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            background-color: var(--bg-base);
-            background-image: 
-                radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.25) 0%, transparent 60%),
-                linear-gradient(rgba(15, 23, 42, 0.3) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(15, 23, 42, 0.3) 1px, transparent 1px);
-            background-size: 100% 100%, 30px 30px, 30px 30px;
-            color: var(--text-main);
+            background-color: var(--bg-obsidian);
+            background-image:
+                radial-gradient(circle at 18% 12%, rgba(99, 102, 241, 0.2), transparent 44%),
+                radial-gradient(circle at 84% 18%, rgba(16, 185, 129, 0.13), transparent 42%),
+                linear-gradient(180deg, #06080e 0%, #090d18 60%, #06080e 100%);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 24px 16px;
+            overflow-x: hidden;
         }
 
-        .scanlines {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
-            background-size: 100% 4px; z-index: 999; pointer-events: none; opacity: 0.35;
+        @keyframes portalEnter {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
-        .box {
-            background: var(--metallic-panel);
-            border: 1px solid rgba(56, 189, 248, 0.4);
-            border-image: var(--metallic-border) 1;
-            padding: 35px;
-            border-radius: 14px;
+        @keyframes sectionSwitch {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 18px rgba(99, 102, 241, 0.22); }
+            50% { box-shadow: 0 0 30px rgba(16, 185, 129, 0.24); }
+        }
+
+        .portal-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 22px;
+            padding: 34px 30px;
             width: 100%;
-            max-width: 440px;
-            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            max-width: 450px;
+            box-shadow: var(--shadow-deck), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(18px);
             position: relative;
-            z-index: 2;
+            overflow: hidden;
+            animation: portalEnter 0.65s var(--ease-smooth) both, pulseGlow 6s ease-in-out infinite;
+        }
+
+        .portal-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-indigo), var(--accent-emerald));
+        }
+
+        .eyebrow {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--accent-indigo-bright);
+            text-align: center;
+            margin-bottom: 6px;
         }
 
         h2 {
-            font-size: 1.6rem;
-            color: var(--neon-cyan);
-            letter-spacing: 2px;
-            text-shadow: 0 0 15px rgba(56,189,248,0.6);
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
             text-align: center;
-            margin-bottom: 5px;
+            background: linear-gradient(120deg, #ffffff 15%, #c7d2fe 60%, #6ee7b7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .subtitle {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
             text-align: center;
-            margin-bottom: 20px;
+            margin-top: 6px;
+            margin-bottom: 22px;
         }
 
         .tabs {
-            display: flex;
-            margin-bottom: 20px;
-            border-bottom: 1px solid rgba(56, 189, 248, 0.3);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            background: rgba(6, 8, 14, 0.85);
+            border: 1px solid var(--border-subtle);
+            padding: 6px;
+            border-radius: 14px;
+            margin-bottom: 22px;
+            position: relative;
         }
 
         .tab {
-            flex: 1;
-            padding: 10px;
+            padding: 10px 12px;
             text-align: center;
-            background: rgba(2, 6, 23, 0.5);
-            color: var(--text-muted);
+            color: var(--text-secondary);
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
             text-transform: uppercase;
-            font-weight: bold;
-            transition: 0.3s;
+            border-radius: 10px;
+            transition: all 0.28s var(--ease-smooth);
+            user-select: none;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
         }
 
         .tab.active {
-            background: rgba(56, 189, 248, 0.15);
-            color: var(--neon-cyan);
-            border-bottom: 2px solid var(--neon-cyan);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.26), rgba(16, 185, 129, 0.16));
+            color: #ffffff;
+            border: 1px solid rgba(129, 140, 248, 0.45);
+            box-shadow: 0 6px 18px rgba(99, 102, 241, 0.24);
+            transform: translateY(-1px);
         }
 
-        .form-section { display: none; }
-        .form-section.active { display: block; }
+        .form-section {
+            display: none;
+        }
 
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-        
+        .form-section.active {
+            display: block;
+            animation: sectionSwitch 0.35s var(--ease-smooth) both;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 7px;
+        }
+
         input {
             width: 100%;
-            background: rgba(2, 6, 23, 0.9);
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            padding: 11px 14px;
-            border-radius: 8px;
-            color: var(--text-main);
-            font-size: 0.9rem;
+            background: rgba(6, 8, 14, 0.92);
+            border: 1px solid var(--border-subtle);
+            padding: 12px 14px;
+            border-radius: 11px;
+            color: var(--text-primary);
+            font-size: 0.92rem;
             outline: none;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
-            transition: 0.3s;
+            transition: all 0.25s var(--ease-smooth);
         }
-        input:focus { border-color: var(--neon-cyan); box-shadow: 0 0 12px rgba(56,189,248,0.3), inset 0 2px 4px rgba(0,0,0,0.6); }
+
+        input:focus {
+            border-color: var(--accent-indigo-bright);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
+            transform: translateY(-1px);
+        }
 
         .btn {
             width: 100%;
-            background: linear-gradient(135deg, var(--neon-cyan), #0284c7);
-            color: #090d16;
-            padding: 11px;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
+            background: linear-gradient(135deg, var(--accent-indigo), #4f46e5);
+            color: #ffffff;
+            border: 1px solid rgba(129, 140, 248, 0.5);
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            font-size: 0.88rem;
             cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-size: 0.9rem;
-            margin-top: 5px;
-            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
-            transition: 0.3s;
-        }
-        .btn:hover { box-shadow: 0 0 25px rgba(56, 189, 248, 0.6); transform: translateY(-1px); }
-
-        .btn-emerald { background: linear-gradient(135deg, var(--neon-emerald), #059669); color: #090d16; box-shadow: 0 0 15px rgba(52, 211, 153, 0.3); }
-        .btn-emerald:hover { box-shadow: 0 0 25px rgba(52, 211, 153, 0.6); }
-
-        .google-btn { background: linear-gradient(135deg, var(--neon-rose), #be123c); color: #fff; margin-top: 10px; box-shadow: 0 0 15px rgba(244, 63, 94, 0.3); }
-        .google-btn:hover { box-shadow: 0 0 25px rgba(244, 63, 94, 0.6); }
-
-        .test-box {
-            background: rgba(2, 6, 23, 0.6);
-            border: 1px dashed rgba(56, 189, 248, 0.4);
-            padding: 14px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            margin-top: 6px;
+            box-shadow: 0 8px 22px rgba(99, 102, 241, 0.3);
+            transition: all 0.28s var(--ease-spring);
         }
 
-        #error-msg { color: var(--neon-rose); font-size: 0.82rem; text-align: center; margin-top: 12px; font-weight: bold; }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(99, 102, 241, 0.45);
+        }
+
+        .btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .btn-emerald {
+            background: linear-gradient(135deg, var(--accent-emerald), #059669);
+            color: #05110d;
+            border-color: rgba(52, 211, 153, 0.55);
+            box-shadow: 0 8px 22px rgba(16, 185, 129, 0.28);
+        }
+
+        .btn-emerald:hover {
+            box-shadow: 0 12px 28px rgba(16, 185, 129, 0.44);
+        }
+
+        .google-btn {
+            background: linear-gradient(135deg, var(--accent-crimson), #be123c);
+            color: #ffffff;
+            border-color: rgba(244, 63, 94, 0.45);
+            margin-top: 10px;
+            box-shadow: 0 8px 22px rgba(239, 68, 68, 0.26);
+        }
+
+        .google-btn:hover {
+            box-shadow: 0 12px 28px rgba(239, 68, 68, 0.42);
+        }
+
+        #error-msg {
+            color: var(--accent-crimson-bright);
+            font-size: 0.82rem;
+            text-align: center;
+            margin-top: 14px;
+            font-weight: 600;
+            min-height: 18px;
+        }
+
+        /* Mobile Device Adaptation */
+        @media (max-width: 640px), (pointer: coarse) {
+            body {
+                padding: 14px 12px;
+                align-items: center;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .portal-card {
+                padding: 24px 18px;
+                border-radius: 18px;
+                max-width: 100%;
+            }
+            h2 {
+                font-size: 1.45rem;
+            }
+            .tab, input, .btn {
+                min-height: 44px;
+                font-size: 0.92rem;
+            }
+        }
+
+        body.is-mobile-device .portal-card {
+            border-color: rgba(99, 102, 241, 0.42);
+        }
     </style>
 </head>
 <body>
-    <div class="scanlines"></div>
-    <div class="box">
+    <div class="portal-card" id="portal-card">
+        <div class="eyebrow">Obsidian-Titanium Gateway</div>
         <h2>NEXON PORTAL</h2>
-        <div class="subtitle">Cyber-Metallic Multi-User Gateway</div>
-
-        <!-- INSTANT DEV TEST MODE 
-        <div class="test-box">
-            <label style="color: var(--neon-cyan); margin-bottom: 6px;">⚡ Instant Developer Test Mode</label>
-            <input type="text" id="dev-user-id" placeholder="Enter test username (e.g., aryan)">
-            <button class="btn btn-emerald" onclick="loginDevMode()" style="margin-top: 8px;">Quick Test Login</button>
-        </div> -->
+        <div class="subtitle">Multi-User WhatsApp Automation Hub</div>
 
         <div class="tabs">
-            <div class="tab active" onclick="switchTab('login')">Sign In</div>
-            <div class="tab" onclick="switchTab('signup')">Sign Up</div>
+            <div class="tab active" id="tab-signup" onclick="switchTab('signup')">Sign Up</div>
+            <div class="tab" id="tab-login" onclick="switchTab('login')">Sign In</div>
         </div>
 
-        <!-- LOGIN SECTION -->
-        <div id="login-section" class="form-section active">
-            <div class="form-group">
-                <label>Email Address</label>
-                <input type="email" id="login-email" placeholder="Enter email...">
-            </div>
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" id="login-password" placeholder="Enter password...">
-            </div>
-            <button class="btn" onclick="loginEmail()">Sign In</button>
-            <button class="btn google-btn" onclick="loginGoogle()">Sign In with Google</button>
-        </div>
-
-        <!-- SIGNUP SECTION -->
-        <div id="signup-section" class="form-section">
+        <!-- SIGNUP SECTION (DEFAULT FOR NEW USERS) -->
+        <div id="signup-section" class="form-section active">
             <div class="form-group">
                 <label>New Email Address</label>
                 <input type="email" id="signup-email" placeholder="Enter new email...">
@@ -193,8 +308,22 @@
                 <label>Create Password</label>
                 <input type="password" id="signup-password" placeholder="Create password...">
             </div>
-            <button class="btn btn-emerald" onclick="signupUser()">Create Account & Setup</button>
-            <button class="btn google-btn" onclick="loginGoogle()">Sign Up with Google</button>
+            <button type="button" class="btn btn-emerald" onclick="signupUser()">Create Account & Setup</button>
+            <button type="button" class="btn google-btn" onclick="loginGoogle()">Sign Up with Google</button>
+        </div>
+
+        <!-- LOGIN SECTION -->
+        <div id="login-section" class="form-section">
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="login-email" placeholder="Enter email...">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="login-password" placeholder="Enter password...">
+            </div>
+            <button type="button" class="btn" onclick="loginEmail()">Sign In</button>
+            <button type="button" class="btn google-btn" onclick="loginGoogle()">Sign In with Google</button>
         </div>
 
         <div id="error-msg"></div>
@@ -216,36 +345,47 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
+        function detectMobileDevice() {
+            const uaMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const smallScreen = window.innerWidth <= 768;
+            if (uaMobile || smallScreen) {
+                document.body.classList.add('is-mobile-device');
+            } else {
+                document.body.classList.remove('is-mobile-device');
+            }
+        }
+        detectMobileDevice();
+        window.addEventListener('resize', detectMobileDevice);
+
         // Auto-redirect to dashboard if already logged in
         const savedUid = localStorage.getItem('nexonUserId');
         if (savedUid) {
-            window.location.replace(`/dashboard.html?userId=${savedUid}`);
+            window.location.replace(`/dashboard.html?userId=${encodeURIComponent(savedUid)}`);
         }
 
         window.switchTab = (tab) => {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
             if (tab === 'login') {
-                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.getElementById('tab-login').classList.add('active');
                 document.getElementById('login-section').classList.add('active');
             } else {
-                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('tab-signup').classList.add('active');
                 document.getElementById('signup-section').classList.add('active');
             }
         };
 
         window.loginDevMode = () => {
-            const username = document.getElementById('dev-user-id').value.trim();
+            const username = document.getElementById('dev-user-id')?.value?.trim();
             if (!username) {
                 document.getElementById('error-msg').textContent = '⚠️ Please enter a test username!';
                 return;
             }
             const cleanUid = 'user_' + username.replace(/[^a-zA-Z0-9_]/g, '_');
             localStorage.setItem('nexonUserId', cleanUid);
-            window.location.href = `/dashboard.html?userId=${cleanUid}`;
+            window.location.href = `/dashboard.html?userId=${encodeURIComponent(cleanUid)}`;
         };
 
-        // Helper function to sync email profile with the backend
         async function syncUserProfile(userId, email) {
             if (!email) return;
             try {
@@ -264,14 +404,40 @@
             const password = document.getElementById('login-password').value;
             const errorEl = document.getElementById('error-msg');
             errorEl.textContent = '';
+
+            if (!email || !password) {
+                errorEl.textContent = '⚠️ Please enter both email and password.';
+                return;
+            }
+
             try {
                 const res = await signInWithEmailAndPassword(auth, email, password);
                 const uid = res.user.uid;
                 const userEmail = res.user.email || email;
                 localStorage.setItem('nexonUserId', uid);
                 await syncUserProfile(uid, userEmail);
-                window.location.href = `/dashboard.html?userId=${uid}`;
-            } catch (err) { errorEl.textContent = '❌ ' + err.message; }
+                window.location.href = `/dashboard.html?userId=${encodeURIComponent(uid)}`;
+            } catch (err) {
+                // If the email doesn't exist yet, switch to Sign Up and register immediately
+                if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+                    window.switchTab('signup');
+                    document.getElementById('signup-email').value = email;
+                    document.getElementById('signup-password').value = password;
+                    try {
+                        const created = await createUserWithEmailAndPassword(auth, email, password);
+                        const uid = created.user.uid;
+                        const userEmail = created.user.email || email;
+                        localStorage.setItem('nexonUserId', uid);
+                        await syncUserProfile(uid, userEmail);
+                        window.location.href = `/dashboard.html?userId=${encodeURIComponent(uid)}`;
+                        return;
+                    } catch (signupErr) {
+                        errorEl.textContent = '❌ ' + signupErr.message;
+                        return;
+                    }
+                }
+                errorEl.textContent = '❌ ' + err.message;
+            }
         };
 
         window.signupUser = async () => {
@@ -285,8 +451,10 @@
                 const userEmail = res.user.email || email;
                 localStorage.setItem('nexonUserId', uid);
                 await syncUserProfile(uid, userEmail);
-                window.location.href = `/dashboard.html?userId=${uid}`;
-            } catch (err) { errorEl.textContent = '❌ ' + err.message; }
+                window.location.href = `/dashboard.html?userId=${encodeURIComponent(uid)}`;
+            } catch (err) {
+                errorEl.textContent = '❌ ' + err.message;
+            }
         };
 
         window.loginGoogle = async () => {
@@ -298,14 +466,15 @@
                 const uid = res.user.uid;
                 const email = res.user.email;
                 localStorage.setItem('nexonUserId', uid);
-                
-                // Synchronize Google user email immediately to the backend profile endpoint
+
                 if (email) {
                     await syncUserProfile(uid, email);
                 }
 
-                window.location.href = `/dashboard.html?userId=${uid}`;
-            } catch (err) { errorEl.textContent = '❌ ' + err.message; }
+                window.location.href = `/dashboard.html?userId=${encodeURIComponent(uid)}`;
+            } catch (err) {
+                errorEl.textContent = '❌ ' + err.message;
+            }
         };
     </script>
 </body>

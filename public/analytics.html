@@ -101,11 +101,11 @@
         }
 
         .table-container {
-            max-height: 490px; overflow-y: auto; border: 1px solid var(--border-subtle);
+            max-height: 490px; overflow-y: auto; overflow-x: auto; border: 1px solid var(--border-subtle);
             border-radius: 14px; background: rgba(6, 8, 14, 0.9);
         }
 
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.84rem; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.84rem; min-width: 540px; }
         th, td { padding: 12px 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.09); }
         th {
             background: rgba(12, 17, 30, 0.96); color: var(--accent-indigo-bright);
@@ -146,6 +146,38 @@
             background: linear-gradient(135deg, var(--accent-crimson), #be123c);
             color: #fff; border: none; padding: 9px 18px; border-radius: 10px;
             cursor: pointer; font-weight: 700; float: right;
+        }
+
+        /* Mobile Device Adaptation */
+        @media (max-width: 640px), (pointer: coarse) {
+            body {
+                padding: 16px 12px 44px;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .wrapper {
+                width: 100%;
+            }
+            .panel {
+                padding: 20px 16px;
+                border-radius: 16px;
+            }
+            h2 {
+                font-size: 1.25rem;
+            }
+            .actions-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            #selection-count {
+                margin-left: 0;
+                text-align: center;
+            }
+            button, a.btn, a.back-btn, .modal-close {
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
         }
     </style>
 </head>

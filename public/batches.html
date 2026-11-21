@@ -130,6 +130,29 @@
             font-size: 0.82rem; display: flex; align-items: center; gap: 10px;
         }
         .contact-item:hover { background: rgba(99, 102, 241, 0.1); }
+
+        @media (max-width: 640px), (pointer: coarse) {
+            body {
+                padding: 16px 12px 44px;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .wrapper {
+                width: 100%;
+            }
+            .panel {
+                padding: 20px 16px;
+                border-radius: 16px;
+            }
+            h2 {
+                font-size: 1.3rem;
+            }
+            .batch-header {
+                flex-wrap: wrap;
+            }
+            button, a.btn, a.back-btn, a.back-link, input, select, textarea {
+                min-height: 44px;
+            }
+        }
     </style>
 </head>
 <body>

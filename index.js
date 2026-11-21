@@ -103,6 +103,47 @@ async function ensureMongo() {
 }
 ensureMongo();
 
+// --- INDIAN TIMEZONE (IST / UTC+5:30) PARSER (SUPPORTS 24H & 12H AM/PM + SECONDS) ---
+function parseIstDateTimeToMs(dateStr, timeStr, periodStr) {
+    let cleanDate = '';
+    let cleanTime = '';
+
+    if (dateStr && dateStr.includes('T') && !timeStr) {
+        const parts = dateStr.split('T');
+        cleanDate = parts[0];
+        cleanTime = (parts[1] || '00:00:00').slice(0, 8);
+    } else {
+        cleanDate = (dateStr || '').trim();
+        cleanTime = (timeStr || '00:00:00').trim().slice(0, 8);
+    }
+
+    const dMatch = cleanDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const tMatch = cleanTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (!dMatch || !tMatch) {
+        const fallback = new Date(dateStr);
+        return isNaN(fallback.getTime()) ? NaN : fallback.getTime();
+    }
+
+    const year = Number(dMatch[1]);
+    const month = Number(dMatch[2]) - 1;
+    const day = Number(dMatch[3]);
+    let hour = Number(tMatch[1]);
+    const minute = Number(tMatch[2]);
+    const second = tMatch[3] ? Number(tMatch[3]) : 0;
+
+    if (periodStr) {
+        const upperPeriod = periodStr.toString().trim().toUpperCase();
+        if (upperPeriod === 'AM') {
+            if (hour === 12) hour = 0;
+        } else if (upperPeriod === 'PM') {
+            if (hour !== 12) hour += 12;
+        }
+    }
+
+    // IST is UTC+05:30 -> UTC ms = Date.UTC(year, month, day, hour - 5, minute - 30, second, 0)
+    return Date.UTC(year, month, day, hour - 5, minute - 30, second, 0);
+}
+
 // --- PER-USER MONGODB BOT CONFIG HELPERS ---
 async function saveUserConfigToMongo(userId, configPayload) {
     const { userConfigCollection: col } = await ensureMongo();
@@ -347,6 +388,7 @@ async function persistSchedules(userId) {
     const session = getUserSessionState(userId);
     if (!session) return;
     await saveUserSchedulesToMongo(userId, Array.isArray(session.scheduledMessages) ? session.scheduledMessages : []);
+    armUpcomingSpecialTimersForUser(userId);
 }
 
 function cleanupScheduledMediaFiles(mediaPaths) {
@@ -446,6 +488,7 @@ function getUserSessionState(userId) {
             contactsMap: new Map(),
             batchesConfig: [],
             scheduledMessages: [],
+            armedScheduleIds: new Set(),
             isProcessingSchedule: false,
             messageHistory: [],
             cooldownMap: new Map(),
@@ -457,7 +500,7 @@ function getUserSessionState(userId) {
         loadUserContactsFromMongo(cleanId).catch(() => {});
         loadUserBatchesFromMongo(cleanId).catch(() => {});
         loadUserHistoryFromMongo(cleanId).catch(() => {});
-        loadUserSchedulesFromMongo(cleanId).catch(() => {});
+        loadUserSchedulesFromMongo(cleanId).then(() => armUpcomingSpecialTimersForUser(cleanId)).catch(() => {});
     }
     return activeUserSessions.get(cleanId);
 }
@@ -501,8 +544,103 @@ function normalizeRecipientJid(contactId) {
     return formatted ? formatted.id : null;
 }
 
+// --- SEND SINGLE SCHEDULE ITEM ---
+async function executeSingleScheduleItem(userId, sched) {
+    const session = activeUserSessions.get(userId);
+    if (!session || !session.sock || session.status !== 'connected') {
+        return { completed: false, anySent: false };
+    }
+
+    let mediaPayloads = [];
+    if (sched.scheduleType !== 'special_text' && sched.mediaPaths && Array.isArray(sched.mediaPaths)) {
+        for (const filePath of sched.mediaPaths) {
+            if (filePath && fs.existsSync(filePath)) {
+                const ext = path.extname(filePath).toLowerCase();
+                if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
+                    mediaPayloads.push({ type: 'image', data: fs.readFileSync(filePath) });
+                } else if (['.mp4', '.mkv', '.avi'].includes(ext)) {
+                    mediaPayloads.push({ type: 'video', data: fs.readFileSync(filePath) });
+                } else {
+                    mediaPayloads.push({ type: 'document', data: fs.readFileSync(filePath), fileName: path.basename(filePath) });
+                }
+            }
+        }
+    }
+
+    const contactIds = Array.isArray(sched.contactIds) ? sched.contactIds : [];
+    let allSent = true;
+    let anySent = false;
+
+    for (const rawContactId of contactIds) {
+        const targetJid = normalizeRecipientJid(rawContactId);
+        if (!targetJid) continue;
+
+        try {
+            if (mediaPayloads.length > 0) {
+                for (let i = 0; i < mediaPayloads.length; i++) {
+                    const media = mediaPayloads[i];
+                    const captionText = (i === 0) ? (sched.message || '') : '';
+                    if (media.type === 'image') {
+                        await session.sock.sendMessage(targetJid, { image: media.data, caption: captionText });
+                    } else if (media.type === 'video') {
+                        await session.sock.sendMessage(targetJid, { video: media.data, caption: captionText });
+                    } else {
+                        await session.sock.sendMessage(targetJid, {
+                            document: media.data,
+                            mimetype: 'application/octet-stream',
+                            fileName: media.fileName,
+                            caption: captionText
+                        });
+                    }
+                }
+            } else if (sched.message) {
+                await session.sock.sendMessage(targetJid, { text: sched.message });
+            }
+            anySent = true;
+            await logUserHistory(userId, sched.scheduleType === 'special_text' ? 'special' : 'scheduled', targetJid, sched.message || '[Scheduled Media]');
+        } catch (sendErr) {
+            allSent = false;
+            console.error(`[SCHEDULER SEND ERROR - User ${userId} -> ${targetJid}]:`, sendErr.message);
+        }
+    }
+
+    if (allSent && sched.mediaPaths) {
+        cleanupScheduledMediaFiles(sched.mediaPaths);
+    }
+
+    return { completed: allSent, anySent };
+}
+
+// --- EARLY INITIALIZATION / PRECISION LOCK (~350ms AHEAD COMPENSATION) ---
+const EARLY_DISPATCH_OFFSET_MS = 350;
+
+function armUpcomingSpecialTimersForUser(userId) {
+    const session = activeUserSessions.get(userId);
+    if (!session || !Array.isArray(session.scheduledMessages)) return;
+    if (!session.armedScheduleIds) session.armedScheduleIds = new Set();
+
+    const now = Date.now();
+    for (const sched of session.scheduledMessages) {
+        if (!sched || !sched.id) continue;
+        if (session.armedScheduleIds.has(sched.id)) continue;
+
+        const targetTime = Number(sched.targetMs) || new Date(sched.datetime).getTime();
+        if (isNaN(targetTime)) continue;
+
+        const compensatedTarget = targetTime - EARLY_DISPATCH_OFFSET_MS;
+        const msRemaining = compensatedTarget - now;
+        if (msRemaining <= 5000) {
+            session.armedScheduleIds.add(sched.id);
+            const delay = Math.max(0, msRemaining);
+            setTimeout(async () => {
+                await processDueSchedulesForUser(userId, sched.id);
+            }, delay);
+        }
+    }
+}
+
 // --- INDIVIDUAL USER SCHEDULER EXECUTOR ---
-async function processDueSchedulesForUser(userId) {
+async function processDueSchedulesForUser(userId, specificScheduleId = null) {
     const session = activeUserSessions.get(userId);
     if (!session) return;
     if (session.isProcessingSchedule) return;
@@ -510,12 +648,17 @@ async function processDueSchedulesForUser(userId) {
     if (!Array.isArray(session.scheduledMessages) || session.scheduledMessages.length === 0) return;
 
     const now = Date.now();
+    const triggerThreshold = now + EARLY_DISPATCH_OFFSET_MS;
+
     const dueItems = [];
     const remainingItems = [];
 
     for (const sched of session.scheduledMessages) {
-        const targetTime = new Date(sched.datetime).getTime();
-        if (!isNaN(targetTime) && now >= targetTime) {
+        const targetTime = Number(sched.targetMs) || new Date(sched.datetime).getTime();
+        const isDue = !isNaN(targetTime) && triggerThreshold >= targetTime;
+        const matchesSpecific = !specificScheduleId || sched.id === specificScheduleId;
+
+        if (isDue && matchesSpecific) {
             dueItems.push(sched);
         } else {
             remainingItems.push(sched);
@@ -527,65 +670,10 @@ async function processDueSchedulesForUser(userId) {
     session.isProcessingSchedule = true;
     try {
         for (const sched of dueItems) {
-            let mediaPayloads = [];
-            if (sched.mediaPaths && Array.isArray(sched.mediaPaths)) {
-                for (const filePath of sched.mediaPaths) {
-                    if (filePath && fs.existsSync(filePath)) {
-                        const ext = path.extname(filePath).toLowerCase();
-                        if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
-                            mediaPayloads.push({ type: 'image', data: fs.readFileSync(filePath) });
-                        } else if (['.mp4', '.mkv', '.avi'].includes(ext)) {
-                            mediaPayloads.push({ type: 'video', data: fs.readFileSync(filePath) });
-                        } else {
-                            mediaPayloads.push({ type: 'document', data: fs.readFileSync(filePath), fileName: path.basename(filePath) });
-                        }
-                    }
-                }
-            }
-
-            const contactIds = Array.isArray(sched.contactIds) ? sched.contactIds : [];
-            let allSent = true;
-            let anySent = false;
-
-            for (const rawContactId of contactIds) {
-                const targetJid = normalizeRecipientJid(rawContactId);
-                if (!targetJid) continue;
-
-                try {
-                    if (mediaPayloads.length > 0) {
-                        for (let i = 0; i < mediaPayloads.length; i++) {
-                            const media = mediaPayloads[i];
-                            const captionText = (i === 0) ? (sched.message || '') : '';
-                            if (media.type === 'image') {
-                                await session.sock.sendMessage(targetJid, { image: media.data, caption: captionText });
-                            } else if (media.type === 'video') {
-                                await session.sock.sendMessage(targetJid, { video: media.data, caption: captionText });
-                            } else {
-                                await session.sock.sendMessage(targetJid, {
-                                    document: media.data,
-                                    mimetype: 'application/octet-stream',
-                                    fileName: media.fileName,
-                                    caption: captionText
-                                });
-                            }
-                        }
-                    } else if (sched.message) {
-                        await session.sock.sendMessage(targetJid, { text: sched.message });
-                    }
-                    anySent = true;
-                    await logUserHistory(userId, 'scheduled', targetJid, sched.message || '[Scheduled Media]');
-                } catch (sendErr) {
-                    allSent = false;
-                    console.error(`[SCHEDULER SEND ERROR - User ${userId} -> ${targetJid}]:`, sendErr.message);
-                }
-            }
-
-            if (allSent && anySent) {
-                cleanupScheduledMediaFiles(sched.mediaPaths);
-            } else if (!allSent && session.status !== 'connected') {
+            const { completed } = await executeSingleScheduleItem(userId, sched);
+            if (session.armedScheduleIds) session.armedScheduleIds.delete(sched.id);
+            if (!completed && session.status !== 'connected') {
                 remainingItems.push(sched);
-            } else if (allSent && !anySent) {
-                cleanupScheduledMediaFiles(sched.mediaPaths);
             }
         }
 
@@ -599,6 +687,7 @@ async function processDueSchedulesForUser(userId) {
 setInterval(async () => {
     for (const userId of activeUserSessions.keys()) {
         try {
+            armUpcomingSpecialTimersForUser(userId);
             await processDueSchedulesForUser(userId);
         } catch (err) {
             console.error(`[SCHEDULER TICK ERROR - ${userId}]:`, err.message);
@@ -773,6 +862,7 @@ async function startUserBot(userId) {
         loadUserHistoryFromMongo(userId),
         loadUserSchedulesFromMongo(userId)
     ]);
+    armUpcomingSpecialTimersForUser(userId);
     const { state, saveCreds } = await useMongoAuthState(userId);
 
     session.sock = makeWASocket({
@@ -807,6 +897,7 @@ async function startUserBot(userId) {
             session.latestQR = "";
             logUserHistory(userId, 'system', 'WhatsApp Core', 'Connected successfully.');
             console.log(`\n[SUCCESS] WhatsApp Bot connected for user: ${userId}\n`);
+            armUpcomingSpecialTimersForUser(userId);
             processDueSchedulesForUser(userId).catch(() => {});
         }
     });
@@ -1225,30 +1316,83 @@ app.post('/api/schedule', upload.array('mediaFiles', 10), async (req, res) => {
     try {
         const userId = getCleanUserId(req);
         const session = getUserSessionState(userId);
-        const { contactIds, datetime, message } = req.body;
-        const parsedContactIds = typeof contactIds === 'string' ? JSON.parse(contactIds) : contactIds;
-        
-        if (!Array.isArray(parsedContactIds) || !parsedContactIds.length || !datetime || !message) {
-            throw new Error('Missing required fields.');
+        const { contactIds, directNumber, datetime, dateStr, timeStr, period, message, scheduleType, specialSlots } = req.body;
+
+        let parsedContactIds = [];
+        if (contactIds) {
+            parsedContactIds = typeof contactIds === 'string' ? JSON.parse(contactIds) : contactIds;
+        }
+        if (!Array.isArray(parsedContactIds)) parsedContactIds = [];
+
+        if (directNumber && directNumber.toString().trim()) {
+            const directFormatted = formatJidAndName(directNumber.toString().trim(), 'Direct Recipient');
+            if (!directFormatted) {
+                throw new Error('Invalid direct phone number (enter at least 10 digits).');
+            }
+            if (!parsedContactIds.includes(directFormatted.id)) {
+                parsedContactIds.push(directFormatted.id);
+            }
         }
 
-        const parsedDate = new Date(datetime);
-        if (isNaN(parsedDate.getTime())) {
-            throw new Error('Invalid date/time format.');
+        const isSpecialText = scheduleType === 'special_text';
+        if (isSpecialText && parsedContactIds.length > 1) {
+            parsedContactIds = [parsedContactIds[0]];
         }
 
-        const mediaPaths = req.files ? req.files.map(file => file.path) : [];
+        if (isSpecialText && specialSlots) {
+            const parsedSlots = typeof specialSlots === 'string' ? JSON.parse(specialSlots) : specialSlots;
+            if (!parsedContactIds.length || !dateStr || !Array.isArray(parsedSlots) || parsedSlots.length === 0) {
+                throw new Error('Select a recipient, date, and add at least one time & message row.');
+            }
+
+            let addedCount = 0;
+            for (const slot of parsedSlots) {
+                const slotTime = (slot.timeStr || '').trim();
+                const slotPeriod = (slot.period || 'AM').trim();
+                const slotMessage = (slot.message || '').trim();
+                const slotTargetMs = parseIstDateTimeToMs(dateStr, slotTime, slotPeriod);
+                if (isNaN(slotTargetMs) || !slotMessage) {
+                    throw new Error('Each Special Message row must have a valid 12-hour time and message.');
+                }
+
+                session.scheduledMessages.push({
+                    id: 'sched_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+                    userId,
+                    scheduleType: 'special_text',
+                    timezone: 'Asia/Kolkata',
+                    contactIds: [parsedContactIds[0]],
+                    datetime: new Date(slotTargetMs).toISOString(),
+                    targetMs: slotTargetMs,
+                    message: slotMessage,
+                    mediaPaths: []
+                });
+                addedCount++;
+            }
+
+            await persistSchedules(userId);
+            return res.json({ status: `${addedCount} Special Message(s) scheduled in IST (12-hour format with seconds) successfully!` });
+        }
+
+        const targetMs = parseIstDateTimeToMs(datetime || dateStr, timeStr, period);
+        if (!parsedContactIds.length || isNaN(targetMs) || !message || !message.toString().trim()) {
+            throw new Error('Missing required fields (recipient, IST date/time, and message).');
+        }
+
+        const mediaPaths = !isSpecialText && req.files ? req.files.map(file => file.path) : [];
         session.scheduledMessages.push({
             id: 'sched_' + Date.now(),
             userId,
+            scheduleType: isSpecialText ? 'special_text' : 'standard',
+            timezone: 'Asia/Kolkata',
             contactIds: parsedContactIds,
-            datetime: parsedDate.toISOString(),
-            message,
+            datetime: new Date(targetMs).toISOString(),
+            targetMs,
+            message: message.toString(),
             mediaPaths
         });
 
         await persistSchedules(userId);
-        res.json({ status: 'Message and multiple files scheduled successfully!' });
+        res.json({ status: isSpecialText ? 'Special message scheduled in IST successfully!' : 'Message and multiple files scheduled successfully!' });
     } catch (err) {
         res.status(500).json({ status: 'Failed to schedule message: ' + err.message });
     }
@@ -1263,6 +1407,7 @@ app.delete('/api/schedule/:id', async (req, res) => {
         if (targetSched && targetSched.mediaPaths) {
             cleanupScheduledMediaFiles(targetSched.mediaPaths);
         }
+        if (session.armedScheduleIds) session.armedScheduleIds.delete(id);
         session.scheduledMessages = (session.scheduledMessages || []).filter(s => s.id !== id);
         await persistSchedules(userId);
         res.json({ status: 'Scheduled message cancelled!' });
@@ -1356,6 +1501,7 @@ async function autoRestoreSessions() {
                 loadUserHistoryFromMongo(uid),
                 loadUserSchedulesFromMongo(uid)
             ]);
+            armUpcomingSpecialTimersForUser(uid);
         }
 
         if (sDocs.length > 0) {
